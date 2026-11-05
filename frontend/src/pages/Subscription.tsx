@@ -1,10 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { motion } from "motion/react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { Ornament, Stamp } from "../components/archive";
 import { useState } from "react";
-import { IconCheck, IconGift } from "../components/icons";
+import { IconStar } from "../components/icons";
 import { Badge, Button, Card, cx, ErrorView, PageHeader, SectionTitle, Skeleton, Toggle } from "../components/ui";
 import { api } from "../lib/api";
-import { date, MODE_LABEL, timeLeft } from "../lib/format";
+import { date, MODE_LABEL, plural, timeLeft } from "../lib/format";
+import { cardVariants, ease } from "../lib/motion";
 import { useMe, usePlans } from "../lib/queries";
 import { confirm, haptic, openInvoice } from "../lib/telegram";
 import type { Me, Payment, Plan, Subscription as Sub } from "../lib/types";
@@ -21,6 +23,30 @@ function features(p: Plan): string[] {
   if (p.priority > 0) out.push(p.priority >= 9 ? "Максимальный приоритет" : "Приоритетная обработка");
   if (f.early_access) out.push("Ранний доступ к новым функциям");
   return out;
+}
+
+const ROMAN = ["I", "II", "III", "IV", "V"];
+
+/** XI. Payment seal: check stroke draws in, ten stars rise. */
+function PaidSeal() {
+  const reduce = useReducedMotion();
+  return (
+    <motion.div className="relative flex flex-col items-center gap-3 py-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+      <svg width="64" height="64" viewBox="0 0 64 64" aria-hidden>
+        <circle cx="32" cy="32" r="30" fill="none" stroke="var(--line-strong)" />
+        <motion.path d="M20 33 L29 42 L45 24" fill="none" stroke="var(--accent)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+          initial={{ pathLength: reduce ? 1 : 0 }} animate={{ pathLength: 1 }} transition={{ duration: 0.7, delay: 0.3, ease: ease.ritual }} />
+      </svg>
+      <p className="font-serif text-[28px] font-light">Принят <i className="font-normal">в архив</i></p>
+      {!reduce && Array.from({ length: 10 }).map((_, i) => (
+        <motion.span key={i} className="absolute top-6 text-accent" style={{ left: `${8 + i * 9}%` }}
+          initial={{ opacity: 0, y: 0, scale: 0.4 }} animate={{ opacity: [0, 1, 0], y: -40 - (i % 3) * 40, rotate: 160, scale: 1 }}
+          transition={{ duration: 0.9, delay: (i % 4) * 0.06, ease: ease.outExpo }}>
+          <IconStar size={9} fill="currentColor" />
+        </motion.span>
+      ))}
+    </motion.div>
+  );
 }
 
 async function waitPaid(intentId: string): Promise<boolean> {
@@ -41,20 +67,21 @@ function TrialCard({ me }: { me: Me }) {
   });
   if (me.trial.active && me.trial.ends_at) {
     return (
-      <Card className="flex items-center gap-4 p-4">
-        <span className="grid h-11 w-11 place-items-center rounded-2xl bg-accent text-white"><IconGift size={22} /></span>
-        <div><p className="font-semibold">Пробный PRO активен</p><p className="text-xs text-ink-2">Осталось {timeLeft(me.trial.ends_at)} · без автосписания</p></div>
+      <Card vellum className="flex items-center gap-4 p-4">
+        <Stamp>PRO</Stamp>
+        <div><p className="font-semibold">Пробный PRO активен</p><p className="caption mt-0.5 text-ink-3">Осталось {timeLeft(me.trial.ends_at)} · без автосписания</p></div>
       </Card>
     );
   }
   if (!me.trial.available) return null;
   return (
-    <Card className="overflow-hidden p-5">
-      <p className="font-mono text-[11px] tracking-[0.14em] text-accent uppercase">Trial</p>
-      <p className="mt-1 font-display text-xl font-semibold">{me.trial.days} дня PRO бесплатно</p>
-      <p className="mt-1 text-sm text-ink-2">Один раз на аккаунт. После окончания вы вернётесь на Free, деньги не спишутся.</p>
-      {m.error && <p className="mt-2 text-sm text-bad">{(m.error as Error).message}</p>}
-      <Button className="mt-4 w-full" loading={m.isPending} onClick={() => m.mutate()}>Активировать пробный период</Button>
+    <Card vellum className="flex flex-col gap-3 p-[18px]">
+      <Ornament className="text-relic" />
+      <p className="flex items-baseline gap-2.5"><span className="font-serif text-[44px] leading-10 italic">{me.trial.days} {plural(me.trial.days, "день", "дня", "дней")}</span>
+        <span className="font-display text-[17px] font-bold">PRO бесплатно</span></p>
+      <p className="text-[13px] leading-[18px] text-ink-2">Без автосписания: по окончании вы вернётесь на Free. Один раз на аккаунт.</p>
+      {m.error && <p className="text-sm text-bad">{(m.error as Error).message}</p>}
+      <Button variant="secondary" className="h-[46px] w-full" loading={m.isPending} onClick={() => m.mutate()}>Активировать пробный период</Button>
     </Card>
   );
 }
@@ -65,6 +92,8 @@ export default function Subscription() {
   const qc = useQueryClient();
   const [buying, setBuying] = useState<string | null>(null);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [sealed, setSealed] = useState<string | null>(null);
+  const reduce = useReducedMotion();
   const payments = useQuery({ queryKey: ["payments"], queryFn: () => api.get<Payment[]>("/api/v1/payments") });
   const renew = useMutation({
     mutationFn: ({ id, enabled }: { id: number; enabled: boolean }) => api.post<Sub>(`/api/v1/subscriptions/${id}/auto-renew`, { enabled }),
@@ -83,7 +112,8 @@ export default function Subscription() {
         await qc.invalidateQueries({ queryKey: ["me"] });
         await qc.invalidateQueries({ queryKey: ["payments"] });
         haptic.success();
-        setMsg(ok ? { ok: true, text: `${p.title} активирован. Спасибо!` } : { ok: true, text: "Оплата принята, подтверждение придёт в чат с ботом." });
+        if (ok) setSealed(p.code);
+        setMsg(ok ? { ok: true, text: `${p.title} принят в архив.` } : { ok: true, text: "Оплата принята, подтверждение придёт в чат с ботом." });
       } else if (status === "failed") {
         haptic.error();
         setMsg({ ok: false, text: "Оплата не прошла. Попробуйте ещё раз." });
@@ -99,10 +129,10 @@ export default function Subscription() {
   const sub = me?.subscription;
   return (
     <div className="mx-auto max-w-xl pb-6">
-      <PageHeader title="Подписка" subtitle="Оплата в Telegram Stars" />
-      <div className="space-y-4 px-4">
+      <PageHeader numeral="IX" label="Подписка" title="Расширь *архив*." subtitle="Оплата в Telegram Stars" />
+      <div className="space-y-3 px-5">
         {me && <TrialCard me={me} />}
-        {msg && <p className={cx("rounded-2xl px-4 py-3 text-sm", msg.ok ? "bg-good/12 text-good" : "bg-bad/12 text-bad")}>{msg.text}</p>}
+        {msg && <p className={cx("caption py-2", msg.ok ? "text-good" : "text-bad")}>{msg.text}</p>}
 
         {plans.isLoading || !me ? (
           [0, 1, 2].map((i) => <Skeleton key={i} className="h-56 rounded-[20px]" />)
@@ -110,38 +140,42 @@ export default function Subscription() {
           plans.data?.map((p, i) => {
             const current = me.plan.code === p.code;
             const popular = p.code === "pro";
+            const roman = ROMAN[i] ?? String(i + 1);
             return (
-              <motion.div key={p.code} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
-                <Card className={cx("p-5", popular && "ring-2 ring-accent")}>
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <p className="font-display text-xl font-bold tracking-tight">{p.title}</p>
-                        {popular && <Badge tone="accent">Популярный</Badge>}
-                        {current && <Badge tone="good">Текущий</Badge>}
-                      </div>
-                      <p className="mt-1 text-sm text-ink-2">{p.description}</p>
+              <motion.article key={p.code} custom={i} variants={cardVariants} initial="hidden" animate="show"
+                className={cx("relative overflow-hidden p-[1.5px]", !popular && "shadow-[inset_0_0_0_1px_var(--line-strong)]")}>
+                {popular && !reduce && (
+                  <motion.span aria-hidden className="absolute -top-[200%] -left-1/2 h-[500%] w-[200%]"
+                    style={{ background: "conic-gradient(from 0deg, var(--accent), #9DABFF, var(--accent), #2E44C9, var(--accent))" }}
+                    animate={{ rotate: 360 }} transition={{ duration: 4, repeat: Infinity, ease: "linear" }} />
+                )}
+                {popular && reduce && <span aria-hidden className="absolute inset-0 bg-accent" />}
+                <div className="relative flex flex-col gap-3 bg-bg px-[18px] pt-5 pb-[18px]">
+                  <span aria-hidden className="pointer-events-none absolute inset-[5px] shadow-[inset_0_0_0_1px_var(--line)]" />
+                  <div className="flex items-start gap-3.5">
+                    <span className="w-[52px] font-serif text-[48px] leading-10">{roman}</span>
+                    <div className="flex-1 pt-0.5">
+                      <p className="font-display text-[19px] font-bold tracking-[-0.02em]">{p.title}</p>
+                      <p className="mt-1 font-mono text-[13px] text-ink-2 tnum">{p.price_stars} ⭐{p.price_stars ? ` / ${p.period_days} дней` : ""}</p>
                     </div>
-                    <div className="text-right">
-                      <p className="font-mono text-2xl font-semibold">{p.price_stars}<span className="ml-1 text-base">⭐</span></p>
-                      <p className="text-xs text-ink-3">{p.price_stars ? `за ${p.period_days} дн.` : "навсегда"}</p>
-                    </div>
+                    {sealed === p.code ? <Stamp land className="h-[26px] -rotate-2 text-[13px]">{p.title}</Stamp>
+                      : popular ? <Badge tone="accent">Популярный</Badge> : current ? <Badge>Текущий</Badge> : null}
                   </div>
-                  <ul className="mt-4 space-y-2">
-                    {features(p).map((f) => (
-                      <li key={f} className="flex items-start gap-2 text-[14px]"><IconCheck size={17} className="mt-0.5 shrink-0 text-accent" />{f}</li>
-                    ))}
+                  <div className="ml-[66px] h-px bg-line" />
+                  <ul className="ml-[66px] flex flex-col gap-[7px]">
+                    {features(p).map((f) => <li key={f} className="flex gap-2 text-[13px] leading-[18px] text-ink-2"><span className="text-ink-3">—</span>{f}</li>)}
                   </ul>
                   {p.price_stars > 0 && (
-                    <Button className="mt-5 w-full" variant={popular ? "primary" : "secondary"} loading={buying === p.code} onClick={() => buy(p)}>
+                    <Button className="mt-2 w-full" variant={popular ? "primary" : "secondary"} loading={buying === p.code} onClick={() => buy(p)}>
                       {current && !me.trial.active ? "Продлить" : `Оформить за ${p.price_stars} ⭐`}
                     </Button>
                   )}
-                </Card>
-              </motion.div>
+                </div>
+              </motion.article>
             );
           })
         )}
+        <AnimatePresence>{sealed && <PaidSeal key={sealed} />}</AnimatePresence>
 
         {sub && sub.is_recurring && !me?.trial.active && (
           <Card className="flex items-center gap-4 p-4">
@@ -164,9 +198,9 @@ export default function Subscription() {
         <section id="payments" className="pt-4">
           <SectionTitle>История платежей</SectionTitle>
           {payments.data?.length ? (
-            <ul className="divide-y divide-line overflow-hidden rounded-[20px] bg-surface ring-1 ring-line">
+            <ul className="divide-y divide-line border-y border-line">
               {payments.data.map((p) => (
-                <li key={p.id} className="flex items-center justify-between px-4 py-3">
+                <li key={p.id} className="flex items-center justify-between py-3">
                   <div><p className="text-[14px] font-medium uppercase">{p.plan_code}{p.is_recurring ? " · автопродление" : ""}</p><p className="text-xs text-ink-3">{date(p.created_at, true)}</p></div>
                   <div className="text-right"><p className="font-mono">{p.amount_stars} ⭐</p>{p.status === "refunded" && <p className="text-xs text-bad">возврат</p>}</div>
                 </li>

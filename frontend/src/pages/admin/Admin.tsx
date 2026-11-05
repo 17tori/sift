@@ -320,7 +320,7 @@ export default function Admin() {
   if (!me?.is_admin) return <Navigate to="/" replace />;
   return (
     <div className="mx-auto max-w-xl pb-6">
-      <PageHeader title="Админ-панель" />
+      <PageHeader label="XIII — Админ" title="Админ-панель" serif={false} />
       <div className="px-4">
         <Tabs />
         <Routes>

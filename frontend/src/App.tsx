@@ -1,7 +1,9 @@
-import { lazy, Suspense, useEffect } from "react";
+import { AnimatePresence } from "motion/react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { BottomNav } from "./components/BottomNav";
 import { Logo } from "./components/Logo";
+import { Splash } from "./components/Splash";
 import { Spinner } from "./components/ui";
 import { ApiError } from "./lib/api";
 import { useConfig, useMe } from "./lib/queries";
@@ -100,24 +102,23 @@ export default function App() {
   useAccent(config.data?.brand.accent);
   useBack();
   useStartParam();
+  const minSplash = useMinDelay(splashSeen() ? 0 : 900);
 
   useEffect(() => {
     if (config.data) document.title = config.data.brand.name;
   }, [config.data]);
 
   const name = config.data?.brand.name ?? "SIFT";
+  const splash = <AnimatePresence>{(me.isPending || !minSplash) && <Splash key="splash" />}</AnimatePresence>;
   if (!insideTelegram() && !import.meta.env.DEV) return <OutsideTelegram name={name} bot={config.data?.bot_username} />;
   if (me.error instanceof ApiError && me.error.status === 403) return <Blocked />;
-  if (me.isPending) {
-    return (
-      <div className="flex min-h-dvh items-center justify-center">
-        <Spinner />
-      </div>
-    );
-  }
+
+  if (me.isPending) return splash;
 
   const showNav = TABS.has(pathname);
   return (
+    <>
+    {splash}
     <div className="mx-auto min-h-dvh max-w-xl pt-[var(--tg-safe-top,0px)]" style={{ paddingBottom: showNav ? "calc(76px + var(--tg-safe-bottom, 0px))" : "var(--tg-safe-bottom, 0px)" }}>
       <Routes>
         <Route path="/" element={<Home />} />
@@ -134,5 +135,21 @@ export default function App() {
       </Routes>
       {showNav && <BottomNav />}
     </div>
+    </>
   );
+}
+
+/** Splash holds for its 900 ms ritual on the first open of a session only. */
+function useMinDelay(ms: number): boolean {
+  const [done, setDone] = useState(ms === 0);
+  useEffect(() => {
+    if (ms === 0) return;
+    const id = window.setTimeout(() => { setDone(true); try { sessionStorage.setItem("sift.splash", "1"); } catch { /* private mode */ } }, ms);
+    return () => window.clearTimeout(id);
+  }, [ms]);
+  return done;
+}
+
+function splashSeen(): boolean {
+  try { return !!sessionStorage.getItem("sift.splash"); } catch { return true; }
 }

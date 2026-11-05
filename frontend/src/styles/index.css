@@ -2,8 +2,15 @@
 @import "@fontsource-variable/inter";
 @import "@fontsource-variable/manrope";
 @import "@fontsource-variable/geist-mono";
+@import "@fontsource-variable/cormorant-garamond";
+@import "@fontsource-variable/cormorant-garamond/wght-italic.css";
+@import "@fontsource/unifrakturcook/700.css";
 
-/* Dark Editorial design tokens. Brand accent can be overridden at runtime (--accent). */
+/*
+ * SIFT — Fashion Intelligence × Gothic Archive.
+ * 80 % Swiss/Editorial, 20 % gothic. Blue (--accent) = action only. Oxblood (--relic) = archival marks only.
+ * Brand accent can be overridden at runtime (--accent) from config.
+ */
 :root {
   --obsidian: #111111;
   --graphite: #242424;
@@ -11,44 +18,60 @@
   --silver: #a6a6a6;
   --accent: #526bff;
 
-  /* light theme (Ivory) */
+  /* light — «архивная бумага» */
   --bg: #f5f3ee;
-  --surface: #ffffff;
-  --surface-2: #ece9e2;
-  --line: rgba(17, 17, 17, 0.08);
-  --line-strong: rgba(17, 17, 17, 0.16);
+  --surface: #fbfaf6;
+  --surface-2: #ece8df;
+  --vellum: #e9e4d8;
+  --line: rgba(17, 17, 17, 0.1);
+  --line-strong: rgba(17, 17, 17, 0.24);
   --ink: #111111;
-  --ink-2: #5c5c5c;
-  --ink-3: #8a8a8a;
+  --ink-2: #4f4b45;
+  --ink-3: #6b675f;
   --accent-ink: #ffffff;
   --accent-soft: rgba(82, 107, 255, 0.1);
-  --good: #2e8b57;
-  --bad: #c2412d;
-  --shadow: 0 1px 2px rgba(17, 17, 17, 0.04), 0 8px 24px rgba(17, 17, 17, 0.06);
+  --relic: #5b1f24;
+  --relic-ink: #5b1f24;
+  --good: #2b7a4b;
+  --bad: #b23a26;
+  --warn: #8a5a00;
+  --shadow: 0 1px 2px rgba(17, 17, 17, 0.04);
+  --grain-opacity: 0.035;
+  --shimmer-peak: var(--line-strong);
 }
 
 :root[data-theme="dark"] {
+  /* dark — «хранилище» */
   --bg: #111111;
-  --surface: #1a1a1a;
+  --surface: #181818;
   --surface-2: #242424;
-  --line: rgba(245, 243, 238, 0.07);
-  --line-strong: rgba(245, 243, 238, 0.14);
+  --vellum: #1c1a18;
+  --line: rgba(245, 243, 238, 0.09);
+  --line-strong: rgba(245, 243, 238, 0.22);
   --ink: #f5f3ee;
-  --ink-2: #a6a6a6;
-  --ink-3: #6f6f6f;
-  --accent-soft: rgba(82, 107, 255, 0.16);
+  --ink-2: #b4b4b4;
+  --ink-3: #8c8c8c;
+  --accent-soft: rgba(82, 107, 255, 0.18);
+  --relic: #8e3a40;
+  --relic-ink: #d9a3a7; /* #8E3A40 on #111 is 2.3:1 — stamp text needs the lighter tint */
   --good: #5cc28a;
   --bad: #ff7a66;
-  --shadow: 0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 12px 32px rgba(0, 0, 0, 0.35);
+  --warn: #e3b45c;
+  --shadow: 0 1px 0 rgba(255, 255, 255, 0.03) inset;
+  --grain-opacity: 0.05;
+  --shimmer-peak: rgba(245, 243, 238, 0.12);
 }
 
 @theme {
   --font-sans: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
   --font-display: "Manrope Variable", "Inter Variable", ui-sans-serif, sans-serif;
+  --font-serif: "Cormorant Garamond Variable", "Cormorant Garamond", Georgia, serif;
   --font-mono: "Geist Mono Variable", ui-monospace, monospace;
+  --font-blackletter: "UnifrakturCook", "Cormorant Garamond Variable", serif;
   --color-bg: var(--bg);
   --color-surface: var(--surface);
   --color-surface-2: var(--surface-2);
+  --color-vellum: var(--vellum);
   --color-line: var(--line);
   --color-line-strong: var(--line-strong);
   --color-ink: var(--ink);
@@ -57,9 +80,12 @@
   --color-accent: var(--accent);
   --color-accent-ink: var(--accent-ink);
   --color-accent-soft: var(--accent-soft);
+  --color-relic: var(--relic);
+  --color-relic-ink: var(--relic-ink);
   --color-good: var(--good);
   --color-bad: var(--bad);
-  --radius-card: 20px;
+  --color-warn: var(--warn);
+  --radius-card: 18px;
 }
 
 html, body, #root { min-height: 100%; }
@@ -68,10 +94,22 @@ body {
   background: var(--bg);
   color: var(--ink);
   font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 22px;
   -webkit-font-smoothing: antialiased;
   -webkit-tap-highlight-color: transparent;
   overscroll-behavior-y: none;
   font-feature-settings: "cv11", "ss01";
+}
+/* Static film grain, 2–5 %. Not animated (battery). */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  pointer-events: none;
+  opacity: var(--grain-opacity);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .5 0 0 0 0 .5 0 0 0 0 .5 0 0 0 1 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 button { cursor: pointer; }
 input, textarea, select { font: inherit; color: inherit; }
@@ -82,14 +120,32 @@ input, textarea, select { font: inherit; color: inherit; }
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { scrollbar-width: none; }
 
+@utility caption {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 14px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-variant-numeric: tabular-nums;
+}
+@utility inv {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  line-height: 13px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+@utility tnum { font-variant-numeric: tabular-nums; }
+
+/* Diagonal shimmer, 1.4 s. */
 .shimmer {
-  background: linear-gradient(100deg, var(--surface-2) 30%, var(--line-strong) 50%, var(--surface-2) 70%);
+  background: linear-gradient(115deg, var(--surface-2) 30%, var(--shimmer-peak) 50%, var(--surface-2) 70%);
   background-size: 300% 100%;
-  animation: shimmer 1.4s ease-in-out infinite;
+  animation: shimmer 1.4s cubic-bezier(0.65, 0, 0.35, 1) infinite;
 }
 @keyframes shimmer { 0% { background-position: 100% 0; } 100% { background-position: 0 0; } }
 
-.dashed-zone {
-  background-image: url("data:image/svg+xml,%3csvg width='100%25' height='100%25' xmlns='http://www.w3.org/2000/svg'%3e%3crect width='100%25' height='100%25' fill='none' rx='24' ry='24' stroke='%23A6A6A6' stroke-opacity='0.45' stroke-width='1.5' stroke-dasharray='6%2c 8' stroke-linecap='round'/%3e%3c/svg%3e");
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 150ms !important; animation-iteration-count: 1 !important; transition-duration: 150ms !important; }
 }
-@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }

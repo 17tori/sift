@@ -17,7 +17,7 @@ export default function Referral() {
   };
   return (
     <div className="mx-auto max-w-xl pb-6">
-      <PageHeader title="Пригласить друзей" subtitle="Бонусные поиски за каждого друга" />
+      <PageHeader numeral="X" label="Рекомендации" title="Приведи *друга*" subtitle="Бонусные поиски за каждого друга" />
       <div className="space-y-4 px-4">
         {!r ? <Skeleton className="h-64 rounded-[20px]" /> : (
           <>

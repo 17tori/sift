@@ -1,9 +1,9 @@
-/* Minimal 1.5px-stroke icon set (24px grid). */
+/* Linear icon set, 24 px grid, stroke 1.75, optically aligned. */
 import type { SVGProps } from "react";
 
 type P = SVGProps<SVGSVGElement> & { size?: number };
 const base = (size = 22): SVGProps<SVGSVGElement> => ({
-  width: size, height: size, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.6,
+  width: size, height: size, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.75,
   strokeLinecap: "round", strokeLinejoin: "round",
 });
 
@@ -34,3 +34,8 @@ export const IconChat = ({ size, ...p }: P) => (<svg {...base(size)} {...p}><pat
 export const IconShield = ({ size, ...p }: P) => (<svg {...base(size)} {...p}><path d="M12 3.5 5 6v5.5c0 4.3 2.9 7.6 7 9 4.1-1.4 7-4.7 7-9V6Z" /></svg>);
 export const IconSpark = ({ size, ...p }: P) => (<svg {...base(size)} {...p}><path d="M12 3v4M12 17v4M3 12h4M17 12h4M6.3 6.3l2.5 2.5M15.2 15.2l2.5 2.5M6.3 17.7l2.5-2.5M15.2 8.8l2.5-2.5" /></svg>);
 export const IconCopy = ({ size, ...p }: P) => (<svg {...base(size)} {...p}><rect x="8" y="8" width="11" height="11" rx="2" /><path d="M5 15V6a1 1 0 0 1 1-1h9" /></svg>);
+export const IconHanger = ({ size, ...p }: P) => (<svg {...base(size)} {...p}><path d="M12 7a2 2 0 1 1 2-2M12 7v2L3.5 15.5A1 1 0 0 0 4.1 17.3h15.8a1 1 0 0 0 .6-1.8L12 9" /></svg>);
+export const IconPriceDown = ({ size, ...p }: P) => (<svg {...base(size)} {...p}><path d="M12 5v14M6 13l6 6 6-6" /></svg>);
+export const IconInfo = ({ size, ...p }: P) => (<svg {...base(size)} {...p}><circle cx="12" cy="12" r="8.5" /><path d="M12 11v5M12 8h.01" /></svg>);
+export const IconOffline = ({ size, ...p }: P) => (<svg {...base(size)} {...p}><path d="M3 3l18 18M8.5 16.5a5 5 0 0 1 7 0M5 13a10 10 0 0 1 4-2.4M19 13a10 10 0 0 0-3-2M12 20h.01" /></svg>);
+export const IconBack = ({ size, ...p }: P) => (<svg {...base(size)} {...p}><path d="m15 6-6 6 6 6" /></svg>);

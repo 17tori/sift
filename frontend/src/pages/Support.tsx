@@ -21,7 +21,7 @@ export default function Support() {
   });
   return (
     <div className="mx-auto max-w-xl pb-6">
-      <PageHeader title="Поддержка" subtitle="Ответим в чате с ботом" />
+      <PageHeader label="XII — Поддержка" title="Вопросы и ответы" subtitle="Ответим в чате с ботом" serif={false} />
       <div className="space-y-4 px-4">
         <Card className="p-4">
           <textarea value={text} onChange={(e) => setText(e.target.value)} maxLength={2000} rows={5}

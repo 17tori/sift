@@ -1,12 +1,14 @@
 import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence, LayoutGroup, motion } from "motion/react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { IconCheck, IconClose, IconFilter, IconGrid, IconList, IconLock, IconRefresh, IconSearch } from "../components/icons";
+import { Arch, ArchImage, CountUp, LedgerRow, SectionMark } from "../components/archive";
+import { IconCheck, IconClose, IconFilter, IconGrid, IconInfo, IconList, IconLock, IconRefresh, IconSearch } from "../components/icons";
 import { ProductCard, ProductSkeleton } from "../components/ProductCard";
 import { Button, Chip, cx, Empty, ErrorView, Field, inputClass, Segmented, Sheet, Spinner } from "../components/ui";
 import { api, qs } from "../lib/api";
-import { CATEGORY_LABEL, CONDITION_LABEL, ERROR_LABEL, MODE_LABEL } from "../lib/format";
+import { CATEGORY_LABEL, CONDITION_LABEL, ERROR_LABEL, MODE_LABEL, plural } from "../lib/format";
+import { dur, ease, shake, spring } from "../lib/motion";
 import { useConfig, useMe, useToggleFavorite } from "../lib/queries";
 import { EMPTY_FILTERS, type ResultFilters, useUi } from "../lib/store";
 import { haptic } from "../lib/telegram";
@@ -14,34 +16,32 @@ import type { Results, Search } from "../lib/types";
 
 const STAGES: { key: Search["stage"]; label: string }[] = [
   { key: "uploaded", label: "Фото загружено" },
-  { key: "analyzing", label: "Анализ изображения и категории" },
-  { key: "embedding", label: "Визуальные характеристики" },
-  { key: "searching", label: "Поиск по маркетплейсам" },
-  { key: "ranking", label: "Сопоставление и сортировка" },
+  { key: "analyzing", label: "Анализируем вещь" },
+  { key: "searching", label: "Ищем на площадках" },
+  { key: "ranking", label: "Сравниваем" },
 ];
 const ORDER = ["uploaded", "analyzing", "embedding", "searching", "ranking", "done"];
 
 const PROVIDER_STATE: Record<string, string> = {
-  searching: "ищем…", done: "", error: "ошибка", timeout: "не ответил", unavailable: "не подключён", skipped: "пропущен",
+  searching: "ищет…", done: "", error: "ошибка", timeout: "не ответил", unavailable: "нет доступа", skipped: "пропущен",
 };
 
 function Stages({ s }: { s: Search }) {
-  const cur = ORDER.indexOf(s.stage);
-  // analyzing and embedding run concurrently in the worker
-  const idx = (k: string) => (k === "embedding" && s.stage === "analyzing" ? cur : ORDER.indexOf(k));
+  const cur = ORDER.indexOf(s.stage === "embedding" ? "analyzing" : s.stage);
   return (
-    <ol className="space-y-3">
+    <ol className="flex flex-col">
       {STAGES.map((st) => {
-        const i = idx(st.key);
+        const i = ORDER.indexOf(st.key);
         const done = s.status !== "failed" && (cur > i || s.status === "completed");
         const now = !done && cur === i && s.status !== "failed";
         return (
-          <li key={st.key} className="flex items-center gap-3">
-            <span className={cx("grid h-6 w-6 place-items-center rounded-full text-white transition-colors",
-              done ? "bg-ink text-bg" : now ? "bg-accent" : "bg-surface-2")}>
-              {done ? <IconCheck size={14} className="text-bg" /> : now ? <Spinner size={13} /> : null}
+          <li key={st.key} className="flex h-9 items-center gap-3">
+            <span className={cx("grid h-[18px] w-[18px] place-items-center rounded-full transition-colors",
+              done ? "bg-ink text-bg" : now ? "shadow-[inset_0_0_0_1.5px_var(--accent)]" : "shadow-[inset_0_0_0_1px_var(--line-strong)]")}>
+              {done && <IconCheck size={11} strokeWidth={3} />}
+              {now && <motion.span className="h-1.5 w-1.5 rounded-full bg-accent" animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 1.2, repeat: Infinity }} />}
             </span>
-            <span className={cx("text-[14px]", done || now ? "text-ink" : "text-ink-3")}>{st.label}</span>
+            <span className={cx("text-[15px]", done || now ? "text-ink" : "text-ink-3", now && "font-semibold")}>{st.label}</span>
           </li>
         );
       })}
@@ -49,44 +49,88 @@ function Stages({ s }: { s: Search }) {
   );
 }
 
-function ProviderChips({ s, names }: { s: Search; names: Record<string, string> }) {
+/** IV. Marketplace stamps: pulse while searching, land like a seal on answer. */
+function ProviderStamps({ s, names }: { s: Search; names: Record<string, string> }) {
   const entries = Object.entries(s.providers);
   if (!entries.length) return null;
+  const total = entries.reduce((n, [, st]) => n + (st.state === "done" ? st.count ?? 0 : 0), 0);
   return (
-    <div className="flex flex-wrap gap-1.5">
-      {entries.map(([code, st]) => (
-        <span key={code} className={cx("inline-flex h-7 items-center gap-1.5 rounded-full px-2.5 text-[12px]",
-          st.state === "done" ? "bg-surface-2 text-ink" : st.state === "searching" ? "bg-accent-soft text-accent" : "bg-surface-2 text-ink-3")}>
-          {st.state === "searching" && <Spinner size={11} />}
-          {names[code] ?? code}
-          {st.state === "done" ? <span className="font-mono text-ink-2">{st.count ?? 0}</span> : <span>{PROVIDER_STATE[st.state]}</span>}
-        </span>
-      ))}
+    <div className="mt-6">
+      <SectionMark numeral="II" label="Площадки" right={<span className="caption text-ink">Найдено <CountUp value={total} className="font-semibold" /></span>} />
+      <div className="mt-3 grid grid-cols-4 gap-1.5">
+        {entries.map(([code, st]) => {
+          const ok = st.state === "done";
+          const busy = st.state === "searching";
+          return (
+            <motion.div key={code + st.state}
+              initial={ok ? { scale: 1.15, rotate: -2, opacity: 0 } : false}
+              animate={busy ? { opacity: [0.45, 1, 0.45] } : { scale: 1, rotate: 0, opacity: 1 }}
+              transition={busy ? { duration: 1.2, repeat: Infinity, ease: ease.inOut } : spring.bouncy}
+              onAnimationComplete={() => { if (ok) haptic.tap(); }}
+              className={cx("flex flex-col gap-1 border p-2.5", ok ? "border-relic" : busy ? "border-line-strong" : "border-line")}>
+              <span className={cx("truncate font-mono text-[10px] tracking-[0.1em] uppercase", ok ? "text-relic-ink" : "text-ink-3")}>{names[code] ?? code}</span>
+              <span className={cx("font-mono text-[11px]", st.state === "error" || st.state === "timeout" ? "text-bad" : ok ? "text-ink" : "text-ink-3")}>
+                {ok ? `найдено ${st.count ?? 0}` : PROVIDER_STATE[st.state]}
+              </span>
+            </motion.div>
+          );
+        })}
+      </div>
     </div>
   );
 }
 
-function AnalysisSummary({ s }: { s: Search }) {
+function AnalysisLedger({ s }: { s: Search }) {
   const a = s.analysis;
   if (!a || a.vision_error) return null;
-  const tags = [a.category && CATEGORY_LABEL[a.category], a.material, a.pattern, a.silhouette, ...(a.style ?? []).slice(0, 2)].filter(Boolean) as string[];
+  const rows = [
+    a.category && { k: "Категория", v: [CATEGORY_LABEL[a.category], a.subcategory].filter(Boolean).join(" · ") },
+    a.material && { k: "Материал", v: a.material },
+    a.silhouette && { k: "Силуэт", v: a.silhouette },
+    a.pattern && { k: "Узор", v: a.pattern },
+    a.brand?.name && a.brand.confidence !== "none" && { k: "Бренд", v: `${a.brand.name} · ${a.brand.confidence === "high" ? "уверенно" : "предп."}` },
+  ].filter(Boolean) as { k: string; v: string }[];
   return (
-    <div className="mt-4">
-      <p className="font-display text-[19px] leading-tight font-semibold">{a.title_ru || a.title_en}</p>
-      <div className="mt-2 flex flex-wrap items-center gap-1.5">
-        {(a.colors ?? []).map((c) => (
-          <span key={c.hex + c.name} className="inline-flex h-6 items-center gap-1.5 rounded-full bg-surface-2 px-2 text-[11px] text-ink-2">
-            <span className="h-3 w-3 rounded-full ring-1 ring-line-strong" style={{ background: c.hex }} />{c.name}
-          </span>
-        ))}
-        {tags.map((t) => <span key={t} className="h-6 rounded-full bg-surface-2 px-2 text-[11px] leading-6 text-ink-2">{t}</span>)}
-        {a.brand?.name && a.brand.confidence !== "none" && (
-          <span className="h-6 rounded-full bg-accent-soft px-2 text-[11px] leading-6 text-accent">
-            Бренд: {a.brand.name} ({a.brand.confidence === "high" ? "уверенно" : "предположительно"})
-          </span>
+    <div className="mt-6">
+      <SectionMark numeral="I" label="Описание экспоната" />
+      <div className="mt-1.5">
+        {rows.map((r, i) => <LedgerRow key={r.k} k={r.k} v={r.v} index={i} typewriter={i < 3} />)}
+        {!!a.colors?.length && (
+          <LedgerRow k="Цвета" index={rows.length}>
+            <span className="flex gap-1.5">
+              {a.colors.map((c, i) => (
+                <motion.span key={c.hex + c.name} title={c.name} className="h-[18px] w-[18px] rounded-full shadow-[inset_0_0_0_1px_var(--line-strong)]"
+                  style={{ background: c.hex }} initial={{ scale: 0.6, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+                  transition={{ ...spring.bouncy, delay: 0.2 + i * 0.06 }} />
+              ))}
+            </span>
+          </LedgerRow>
         )}
       </div>
     </div>
+  );
+}
+
+function ResultTitle({ s }: { s: Search }) {
+  const a = s.analysis;
+  const title = a && !a.vision_error ? (a.title_ru || a.title_en) : null;
+  const words = (title ?? "Результаты поиска").split(" ");
+  const last = words.pop();
+  const tags = a && !a.vision_error ? [a.material, a.silhouette, ...(a.style ?? []).slice(0, 2)].filter(Boolean) as string[] : [];
+  return (
+    <>
+      <h1 className="font-serif text-[36px] leading-[36px] font-light tracking-[-0.015em]">{words.join(" ")} <i className="font-normal">{last}</i></h1>
+      {(tags.length > 0 || !!a?.colors?.length) && (
+        <div className="mt-4 flex flex-wrap gap-1.5">
+          {tags.map((tg) => <span key={tg} className="inline-flex h-7 items-center rounded-full px-2.5 text-[12px] text-ink-2 shadow-[inset_0_0_0_1px_var(--line-strong)]">{tg}</span>)}
+          {(a?.colors ?? []).slice(0, 2).map((c) => (
+            <span key={c.hex} className="inline-flex h-7 items-center gap-1.5 rounded-full px-2.5 text-[12px] text-ink-2 shadow-[inset_0_0_0_1px_var(--line-strong)]">
+              <span className="h-2.5 w-2.5 rounded-full" style={{ background: c.hex }} />{c.name}
+            </span>
+          ))}
+        </div>
+      )}
+    </>
   );
 }
 
@@ -214,79 +258,101 @@ export default function SearchPage() {
 
   return (
     <div className="mx-auto max-w-xl pb-6">
-      <section className="px-4 pt-4">
-        <div className="flex gap-4">
-          <div className="relative h-32 w-[104px] shrink-0 overflow-hidden rounded-3xl bg-surface-2 ring-1 ring-line">
-            {s.image_url && <img src={s.image_url} alt="Ваше фото" className="h-full w-full object-cover" />}
-            {live && <motion.div className="absolute inset-x-0 h-12 bg-gradient-to-b from-transparent via-white/25 to-transparent"
-              animate={{ y: ["-50%", "260%"] }} transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }} />}
+      <section className="px-5 pt-1">
+        {live ? (
+          <>
+            <div className="flex justify-center">
+              <motion.div layoutId="query-photo" transition={spring.soft}>
+                <Arch morph className="h-[264px] w-[200px]">
+                  {s.image_url && <img src={s.image_url} alt="Ваше фото" className="h-full w-full object-cover" />}
+                  {(s.stage === "analyzing" || s.stage === "embedding" || s.stage === "uploaded") && (
+                    <motion.div className="absolute inset-x-0 h-px bg-accent shadow-[0_0_12px_2px_rgba(82,107,255,.7)]"
+                      animate={{ top: ["8%", "92%"] }} transition={{ duration: dur.scan, repeat: Infinity, repeatType: "reverse", ease: ease.inOut }} />
+                  )}
+                </Arch>
+              </motion.div>
+            </div>
+            <p className="caption mt-3 text-center text-ink-3">№ {s.id.slice(0, 4).toUpperCase()} · Запрос · {new Date(s.created_at).toLocaleDateString("ru-RU")}</p>
+            <div className="mt-5"><Stages s={s} /></div>
+            <AnalysisLedger s={s} />
+          </>
+        ) : (
+          <div className="flex items-end gap-4">
+            <motion.div layoutId="query-photo" transition={spring.soft}>
+              <ArchImage src={s.image_url} alt="Ваше фото" className="h-[122px] w-[92px] shrink-0" />
+            </motion.div>
+            <div className="min-w-0 flex-1 pb-0.5">
+              <p className="caption text-ink-3">№ {s.id.slice(0, 4).toUpperCase()} · {MODE_LABEL[s.mode]?.title} · {s.status === "completed" ? new Date(s.created_at).toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit" }) : "ошибка"}</p>
+            </div>
           </div>
-          <div className="min-w-0 flex-1">
-            <p className="font-mono text-[11px] tracking-[0.12em] text-ink-3 uppercase">{MODE_LABEL[s.mode]?.title} · {live ? "в процессе" : s.status === "completed" ? "готово" : "ошибка"}</p>
-            {live ? <div className="mt-3"><Stages s={s} /></div> : <AnalysisSummary s={s} />}
-          </div>
-        </div>
-        {live && <AnalysisSummary s={s} />}
-        <div className="mt-4"><ProviderChips s={s} names={names} /></div>
+        )}
+        {!live && <div className="mt-3"><ResultTitle s={s} /></div>}
+        <ProviderStamps s={s} names={names} />
         {s.status === "completed" && !s.has_similarity && (
-          <p className="mt-3 rounded-2xl bg-surface-2 px-4 py-3 text-xs text-ink-2">Визуальная модель была недоступна, поэтому процент сходства не показан. Результаты отсортированы по релевантности площадок.</p>
+          <p className="mt-3 text-[12px] leading-[17px] text-ink-2">Визуальная модель была недоступна, поэтому процент сходства не показан. Результаты отсортированы по релевантности площадок.</p>
         )}
         {s.mode === "cheaper" && s.reference_price && (
-          <p className="mt-3 text-xs text-ink-2">Ориентир цены: <span className="font-mono">{s.reference_price} {s.reference_currency}</span></p>
+          <p className="caption mt-3 text-ink-2">Ориентир цены · <span className="text-ink">{s.reference_price} {s.reference_currency}</span></p>
         )}
+        {(s.results_count > 0 || live) && <SectionMark numeral="III" label="Результаты" className="mt-6" />}
       </section>
 
       {s.status === "failed" && (
-        <div className="mx-4 mt-6 rounded-3xl bg-surface p-5 ring-1 ring-line">
-          <p className="text-[15px] font-semibold">Поиск не завершён</p>
+        <motion.div className="mx-5 mt-6 p-5 shadow-[inset_0_0_0_1px_var(--line-strong)]" animate={shake} onAnimationStart={() => haptic.error()}>
+          <p className="font-serif text-[28px] leading-8 font-light">Поиск <i className="font-normal">не завершён</i></p>
           <p className="mt-1 text-sm text-ink-2">{ERROR_LABEL[(s.error ?? "").split(":")[0]] ?? s.error}</p>
           {(s.error ?? "").startsWith("not_a_product") ? (
             <Link to="/"><Button variant="secondary" className="mt-4 w-full">Загрузить другое фото</Button></Link>
           ) : (
             <Button variant="secondary" className="mt-4 w-full" onClick={retry}><IconRefresh size={18} /> Повторить поиск</Button>
           )}
-        </div>
+        </motion.div>
       )}
 
       {(s.results_count > 0 || live) && (
-        <div className="sticky top-0 z-20 mt-5 flex items-center gap-2 bg-bg/90 px-4 py-2.5 backdrop-blur-xl">
-          <p className="flex-1 text-sm text-ink-2">
-            <span className="font-mono text-ink">{first?.total ?? s.results_count}</span> {live ? "уже найдено" : "предложений"}
+        <div className="sticky top-0 z-20 mt-2.5 flex items-center gap-2 border-b border-line bg-bg px-5 py-2.5">
+          <p className="caption flex-1 text-ink">
+            <CountUp value={first?.total ?? s.results_count} className="font-semibold" /> {live ? "уже найдено" : plural(first?.total ?? s.results_count, "предложение", "предложения", "предложений")}
           </p>
-          <button onClick={() => setSheet(true)} className="relative flex h-9 items-center gap-1.5 rounded-full bg-surface-2 px-3 text-[13px]">
-            <IconFilter size={17} /> Фильтры
-            {activeFilters > 0 && <span className="grid h-5 min-w-5 place-items-center rounded-full bg-accent px-1 font-mono text-[10px] text-white">{activeFilters}</span>}
+          <button onClick={() => { haptic.tap(); setSheet(true); }} className="relative flex h-[34px] items-center gap-1.5 rounded-full bg-surface-2 px-3 text-[13px] font-medium">
+            <IconFilter size={15} /> Фильтры
+            {activeFilters > 0 && <span className="font-mono text-[11px] text-ink-3">{activeFilters}</span>}
           </button>
-          <button onClick={() => { haptic.select(); setView(view === "grid" ? "list" : "grid"); }} className="grid h-9 w-9 place-items-center rounded-full bg-surface-2" aria-label="Вид">
-            {view === "grid" ? <IconList size={18} /> : <IconGrid size={18} />}
-          </button>
+          <Segmented value={view} onChange={setView} options={[
+            { value: "grid", label: <IconGrid size={15} aria-label="Сетка" /> },
+            { value: "list", label: <IconList size={15} aria-label="Список" /> },
+          ]} />
         </div>
       )}
 
-      <section className="px-4">
+      <section className="px-5 pt-3">
         {items.some((p) => p.via) && (
-          <p className="mb-3 text-[12px] leading-snug text-ink-3">
-            Часть предложений найдена поиском Google по фото и веб-поиском: цену и наличие проверяйте на сайте площадки.
+          <p className="mb-4 flex gap-2 text-[12px] leading-[17px] text-ink-2">
+            <IconInfo size={15} className="mt-px shrink-0" />
+            Часть предложений найдена по фото в Google и веб-поиском. Цену и наличие проверяйте на сайте площадки.
           </p>
         )}
         {items.length > 0 ? (
-          <div className={view === "grid" ? "grid grid-cols-2 gap-3" : "space-y-3"}>
-            <AnimatePresence initial={false}>
-              {items.map((p) => (
-                <ProductCard key={p.product_id} p={p} view={view} onFavorite={(on) => fav.mutate({ productId: p.product_id, searchId: id, on })} />
-              ))}
-            </AnimatePresence>
-          </div>
+          <LayoutGroup>
+            <div className={view === "grid" ? "grid grid-cols-2 gap-x-3 gap-y-6" : "flex flex-col"}>
+              <AnimatePresence initial={false}>
+                {items.map((p, i) => (
+                  <ProductCard key={p.product_id} p={p} view={view} index={i}
+                    onFavorite={(on) => fav.mutate({ productId: p.product_id, searchId: id, on })} />
+                ))}
+              </AnimatePresence>
+            </div>
+          </LayoutGroup>
         ) : live || results.isLoading ? (
-          <div className={view === "grid" ? "grid grid-cols-2 gap-3" : "space-y-3"}>
+          <div className={view === "grid" ? "grid grid-cols-2 gap-x-3 gap-y-6" : "flex flex-col"}>
             {Array.from({ length: 6 }).map((_, i) => <ProductSkeleton key={i} view={view} />)}
           </div>
         ) : s.status === "completed" ? (
           activeFilters ? (
-            <Empty icon={<IconFilter size={26} />} title="Ничего не подходит под фильтры" text="Попробуйте ослабить условия."
+            <Empty icon={<IconFilter size={26} />} title="Под фильтры *ничего*" text="Попробуйте ослабить условия."
               action={<Button variant="secondary" onClick={() => setFilters(id, { ...EMPTY_FILTERS })}><IconClose size={16} /> Сбросить фильтры</Button>} />
           ) : (
-            <Empty icon={<IconSearch size={26} />} title="Похожих предложений не нашлось"
+            <Empty icon={<IconSearch size={26} />} title="Похожих *не нашлось*"
               text="Подключённые площадки не вернули подходящих товаров. Попробуйте другой ракурс или режим «Стиль»."
               action={<Link to="/"><Button variant="secondary">Новый поиск</Button></Link>} />
           )

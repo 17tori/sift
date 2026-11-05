@@ -30,14 +30,14 @@ export default function History() {
 
   return (
     <div className="mx-auto max-w-xl pb-6">
-      <PageHeader title="История" subtitle={limited ? `Тариф Free хранит историю ${limited} дней` : "Все ваши поиски"} />
+      <PageHeader numeral="VII" label="Журнал" title="Журнал *поступлений*" subtitle={limited ? `Free хранит историю ${limited} дней` : undefined} />
       <div className="px-4">
         {q.isLoading ? (
           <div className="space-y-3">{[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-20 rounded-2xl" />)}</div>
         ) : q.isError ? (
           <ErrorView error={q.error} retry={() => q.refetch()} />
         ) : !items.length ? (
-          <Empty icon={<IconClock size={26} />} title="История пуста" text="Здесь будут все ваши поиски по фото." action={<Link to="/"><Button>Начать поиск</Button></Link>} />
+          <Empty icon={<IconClock size={26} />} title="Журнал *пуст*" text="Здесь будут все ваши поиски по фото." action={<Link to="/"><Button>Начать поиск</Button></Link>} />
         ) : (
           <ul className="divide-y divide-line overflow-hidden rounded-[20px] bg-surface ring-1 ring-line">
             {items.map((h) => (

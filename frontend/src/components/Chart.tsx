@@ -1,5 +1,7 @@
 /* Single-series time chart (line or bar) with crosshair/tooltip. One measure per chart, one axis. */
+import { motion, useReducedMotion } from "motion/react";
 import { useMemo, useRef, useState } from "react";
+import { dur, ease, stagger } from "../lib/motion";
 import { num } from "../lib/format";
 
 interface Point { date: string; value: number }
@@ -17,6 +19,7 @@ const short = (iso: string) => new Date(iso + "T00:00:00Z").toLocaleDateString("
 
 export function TimeChart({ title, data, kind = "line", unit = "" }: { title: string; data: Point[]; kind?: "line" | "bar"; unit?: string }) {
   const [hover, setHover] = useState<number | null>(null);
+  const reduce = useReducedMotion();
   const [table, setTable] = useState(false);
   const ref = useRef<SVGSVGElement>(null);
   const total = data.reduce((a, b) => a + b.value, 0);
@@ -40,12 +43,12 @@ export function TimeChart({ title, data, kind = "line", unit = "" }: { title: st
   const hp = hover !== null ? data[hover] : null;
 
   return (
-    <div className="rounded-[20px] bg-surface p-4 ring-1 ring-line">
+    <div className="border-t border-line-strong pt-3.5 pb-2">
       <div className="flex items-start justify-between">
         <div>
-          <p className="text-[13px] text-ink-2">{title}</p>
-          <p className="font-mono text-2xl font-semibold">{num(hp ? hp.value : total)}{unit && <span className="ml-1 text-base">{unit}</span>}</p>
-          <p className="text-[11px] text-ink-3">{hp ? short(hp.date) : `за ${data.length} дн.`}</p>
+          <p className="text-[14px] font-medium">{title}</p>
+          <p className="mt-0.5 font-mono text-[22px] font-semibold tracking-[-0.02em] tnum">{num(hp ? hp.value : total)}{unit && <span className="ml-1 text-base">{unit}</span>}</p>
+          <p className="caption text-ink-3">{hp ? short(hp.date) : `за ${data.length} дн.`}</p>
         </div>
         <button onClick={() => setTable(!table)} className="text-[12px] text-ink-3 underline-offset-2 hover:underline">{table ? "график" : "таблица"}</button>
       </div>
@@ -60,7 +63,7 @@ export function TimeChart({ title, data, kind = "line", unit = "" }: { title: st
           onPointerMove={onMove} onPointerDown={onMove} onPointerLeave={() => setHover(null)}>
           {ticks.map((t) => (
             <g key={t}>
-              <line x1={PAD_L} x2={W - PAD_R} y1={y(t)} y2={y(t)} stroke="var(--line-strong)" strokeWidth={t === 0 ? 1 : 0.6} strokeDasharray={t === 0 ? "" : "2 4"} />
+              <line x1={PAD_L} x2={W - PAD_R} y1={y(t)} y2={y(t)} stroke={t === 0 ? "var(--line-strong)" : "var(--line)"} strokeWidth={1} />
               <text x={PAD_L - 6} y={y(t) + 3} textAnchor="end" fontSize="9" fill="var(--ink-3)" fontFamily="var(--font-mono)">{num(t)}</text>
             </g>
           ))}
@@ -72,19 +75,23 @@ export function TimeChart({ title, data, kind = "line", unit = "" }: { title: st
             const r = Math.min(4, bw / 2, h);
             const x0 = x(i), y0 = y(d.value), yb = PAD_T + ih;
             return (
-              <path key={d.date} opacity={hover === null || hover === i ? 1 : 0.45} fill="var(--accent)"
+              <motion.path key={d.date} opacity={hover === null || hover === i ? 1 : 0.45} fill="var(--accent)"
+                style={{ transformBox: "fill-box", transformOrigin: "bottom" }}
+                initial={reduce ? false : { scaleY: 0 }} animate={{ scaleY: 1 }}
+                transition={{ duration: dur.ritual * 0.75, ease: ease.outExpo, delay: i * stagger.bars * (30 / Math.max(30, data.length)) }}
                 d={h <= 0 ? "" : `M${x0},${yb}V${y0 + r}Q${x0},${y0} ${x0 + r},${y0}H${x0 + bw - r}Q${x0 + bw},${y0} ${x0 + bw},${y0 + r}V${yb}Z`} />
             );
           }) : (
             <>
-              <path d={`${path}L${x(data.length - 1)},${PAD_T + ih}L${x(0)},${PAD_T + ih}Z`} fill="var(--accent)" opacity="0.08" />
-              <path d={path} fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+              <motion.path d={path} fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round"
+                initial={reduce ? false : { pathLength: 0 }} animate={{ d: path, pathLength: 1 }}
+                transition={{ pathLength: { duration: 0.7, ease: ease.outExpo }, d: { duration: dur.screen, ease: ease.inOut } }} />
             </>
           )}
           {hp && hover !== null && (
             <g pointerEvents="none">
               <line x1={kind === "bar" ? x(hover) + bw / 2 : x(hover)} x2={kind === "bar" ? x(hover) + bw / 2 : x(hover)} y1={PAD_T} y2={PAD_T + ih} stroke="var(--ink-3)" strokeWidth="1" />
-              {kind === "line" && <circle cx={x(hover)} cy={y(hp.value)} r="4.5" fill="var(--accent)" stroke="var(--surface)" strokeWidth="2" />}
+              {kind === "line" && <circle cx={x(hover)} cy={y(hp.value)} r="4.5" fill="var(--bg)" stroke="var(--accent)" strokeWidth="2" />}
             </g>
           )}
         </svg>

@@ -14,7 +14,7 @@ export default function Settings() {
   const save = (x: Preferences) => prefs.mutate(x);
   return (
     <div className="mx-auto max-w-xl pb-6">
-      <PageHeader title="Настройки" />
+      <PageHeader label="XI — Настройки" title="Настройки" serif={false} />
       <div className="space-y-4 px-4">
         <Card className="space-y-5 p-4">
           <Field label="Тема">

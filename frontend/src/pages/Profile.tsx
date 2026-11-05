@@ -12,7 +12,7 @@ export default function Profile() {
   const pct = me.quota.limit ? Math.min(100, (me.quota.used / me.quota.limit) * 100) : 0;
   return (
     <div className="mx-auto max-w-xl pb-6">
-      <PageHeader title="Профиль" />
+      <PageHeader numeral="VIII" label="Хранитель" title="Профиль" />
       <div className="space-y-4 px-4">
         <Card className="flex items-center gap-4 p-4">
           {me.photo_url ? <img src={me.photo_url} alt="" className="h-14 w-14 rounded-2xl object-cover" />

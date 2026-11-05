@@ -271,3 +271,21 @@ async def test_thumbs_stored_once_and_refetched_on_change(monkeypatch) -> None: 
 def test_avito_listing_with_tracking_params() -> None:
     assert listing.listing_id("avito", "https://www.avito.ru/moskva/odezhda/sviter_1234567890?context=abc") == "1234567890"
     assert listing.listing_id("avito", "https://www.avito.ru/moskva/odezhda?q=sviter_1234567") is None
+
+
+def test_gemini_verify_parsing_and_body() -> None:
+    from app.ai.base import AIUnavailable
+    from app.ai.verify import build_body, parse_verdicts
+
+    body = build_body(b"q", [b"a", b"b"], "blue knit sweater")
+    parts = body["contents"][0]["parts"]
+    texts = [p.get("text") for p in parts if "text" in p]
+    assert texts == ["Image 0 (user's photo) — blue knit sweater:", "#1:", "#2:", "Score listings #1..#2."]
+    assert body["generationConfig"]["responseJsonSchema"]["required"] == ["items"]
+    items = '[{"i":1,"score":120,"verdict":"same"},{"i":2,"score":12,"verdict":"different"},{"i":7,"score":50,"verdict":"similar"},{"i":"x"}]'
+    text = '```json\n{"items":' + items + "}\n```"
+    data = {"candidates": [{"finishReason": "STOP", "content": {"parts": [{"thought": True, "text": "hmm"}, {"text": text}]}}]}
+    v = parse_verdicts(data, 2)
+    assert v[0].score == 100 and v[0].verdict == "same" and v[1].score == 12 and set(v) == {0, 1}
+    with pytest.raises(AIUnavailable):
+        parse_verdicts({"candidates": [{"finishReason": "SAFETY"}]}, 2)

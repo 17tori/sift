@@ -141,6 +141,8 @@ class SearchResult(TimestampMixin, Base):
     text_rank: Mapped[int] = mapped_column(Integer, default=0, nullable=False)  # provider's own order
     rank_score: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
     is_duplicate: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    # Visual verification judged it a different item: hidden from results.
+    is_rejected: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false", nullable=False)
 
 
 class Favorite(TimestampMixin, Base):

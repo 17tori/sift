@@ -465,3 +465,55 @@ async def test_photo_search_survives_ai_outage(pipeline_fakes: list[str], monkey
             assert img.status_code == 200 and img.content == b"jpeg"
     finally:
         registry.providers.cache_clear()
+
+
+async def test_gemini_verification_scores_and_hides_wrong_items(pipeline_fakes: list[str], monkeypatch: pytest.MonkeyPatch) -> None:
+    """No embeddings: Gemini compares photos, the % comes from it, clearly different items are hidden."""
+    import uuid
+
+    from pydantic import SecretStr
+
+    import app.search.pipeline as pl
+    from app.ai.verify import GeminiVerifier, Verdict
+    from app.api.main import create_app
+    from app.core.config import get_settings
+    from app.marketplace import lens, registry
+
+    class NoEmb(FakeEmbedder):
+        model_id = "none"
+
+    s = get_settings()
+    monkeypatch.setattr(s, "lens_provider", "serper")
+    monkeypatch.setattr(s, "serper_api_key", SecretStr("k"))
+    monkeypatch.setattr(s, "text_search_provider", "none")
+    monkeypatch.setattr(pl, "build_embedding_provider", lambda: NoEmb())
+    monkeypatch.setattr(pl, "verify_ready", lambda: True)
+    monkeypatch.setattr(pl.registry, "visible_providers", lambda: [p for p in registry.providers().values() if p.enabled])
+    ids = [205123456781, 205123456782, 205123456783, 205123456784]
+
+    async def fake_lens(q, codes: list[str], per: int):  # type: ignore[no-untyped-def]
+        data = {"organic": [{"link": f"https://www.ebay.com/itm/{i}", "title": f"Item {i}", "imageUrl": f"https://i/{i}.jpg"} for i in ids]}
+        return lens.parse_serper_lens(data, codes, per)
+
+    seen: list[int] = []
+
+    async def fake_verify(self, query: bytes, cands: list[bytes], hint: str | None = None):  # type: ignore[no-untyped-def]
+        seen.append(len(cands))
+        # stored thumbs hold b"jpeg" in this fixture, so score by position: Lens order 1..4
+        return {0: Verdict(95, "same"), 1: Verdict(80, "same"), 2: Verdict(50, "similar"), 3: Verdict(10, "different")}
+
+    monkeypatch.setattr(lens, "search_by_photo", fake_lens)
+    monkeypatch.setattr(GeminiVerifier, "verify", fake_verify)
+    registry.providers.cache_clear()
+    try:
+        h = {"Authorization": "tma " + init_data(302, "verify")}
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=create_app()), base_url="http://t") as c:
+            sid = (await c.post("/api/v1/searches", headers=h, files={"image": ("a.jpg", image_bytes(), "image/jpeg")})).json()["id"]
+            await pl.run_search(uuid.UUID(sid))
+            st = (await c.get(f"/api/v1/searches/{sid}", headers=h)).json()
+            assert st["status"] == "completed" and st["has_similarity"] and st["results_count"] == 3, st
+            items = (await c.get(f"/api/v1/searches/{sid}/results", headers=h)).json()["items"]
+            assert [i["similarity"] for i in items] == [95, 80, 50] and seen == [4]
+            assert items[0]["url"].endswith(str(ids[0]))
+    finally:
+        registry.providers.cache_clear()

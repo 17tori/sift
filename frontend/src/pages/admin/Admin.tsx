@@ -270,7 +270,7 @@ function IntegrationsView() {
       <div className="grid grid-cols-2 gap-3">
         {Object.entries(q.data.ai).map(([k, v]) => (
           <Card key={k} className="p-4">
-            <p className="text-[12px] text-ink-3">{k === "vision" ? "Анализ фото" : "Эмбеддинги"}</p>
+            <p className="text-[12px] text-ink-3">{({ vision: "Анализ фото", embedding: "Эмбеддинги", verify: "Сверка фото" } as Record<string, string>)[k] ?? k}</p>
             <p className="mt-1 text-[14px] font-medium">{v.provider}{v.model ? ` · ${v.model}` : ""}</p>
             <p className="mt-1 font-mono text-[12px]"><span className="text-good">{v.ok} ok</span> · <span className="text-bad">{v.fail} fail</span></p>
             {v.last_error && <p className="mt-1 line-clamp-2 text-[11px] text-ink-3">{v.last_error.split("|")[1]}</p>}

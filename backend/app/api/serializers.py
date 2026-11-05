@@ -90,5 +90,5 @@ def search_out(s: SearchSession) -> SearchOut:
         error=s.error,
         reference_price=s.reference_price,
         reference_currency=s.reference_currency,
-        has_similarity=s.embedding_model is not None,
+        has_similarity=s.embedding_model is not None or bool((s.analysis or {}).get("similarity_model")),
     )

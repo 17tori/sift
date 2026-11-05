@@ -22,6 +22,9 @@ from app.schemas.common import HistoryItem, HistoryOut, ResultsOut, SearchOut
 from app.services import fx, search_service, subscriptions
 from app.services.media import signed_media_url
 
+# Shown results: not a duplicate, not hidden by visual verification.
+_VISIBLE = (SearchResult.is_duplicate.is_(False), SearchResult.is_rejected.is_(False))
+
 router = APIRouter(prefix="/api/v1")
 
 
@@ -130,7 +133,7 @@ async def search_results(
     ent = await subscriptions.entitlement(session, user)
     advanced = bool(ent.features.get("advanced_filters"))
     locked = not advanced and any(v for v in (condition, country, category, color, size))
-    conds = [SearchResult.search_id == srch.id, SearchResult.is_duplicate.is_(False)]
+    conds = [SearchResult.search_id == srch.id, *_VISIBLE]
     if marketplace:
         conds.append(SearchResult.provider.in_(marketplace.split(",")))
     pmin, pmax = _dec(price_min), _dec(price_max)
@@ -169,16 +172,19 @@ async def search_results(
     items = [product_out(p, r.similarity_pct, p.id in favs, currency, rates) for r, p in rows]
     facet_rows = (
         await session.execute(
-            select(SearchResult.provider, func.count())
-            .where(SearchResult.search_id == srch.id, SearchResult.is_duplicate.is_(False))
-            .group_by(SearchResult.provider)
+            select(SearchResult.provider, func.count()).where(SearchResult.search_id == srch.id, *_VISIBLE).group_by(SearchResult.provider)
         )
     ).all()
     cond_rows = (
         await session.execute(
             select(Product.condition, func.count())
             .join(SearchResult, SearchResult.product_id == Product.id)
-            .where(SearchResult.search_id == srch.id, SearchResult.is_duplicate.is_(False), Product.condition.is_not(None))
+            .where(
+                SearchResult.search_id == srch.id,
+                SearchResult.is_duplicate.is_(False),
+                SearchResult.is_rejected.is_(False),
+                Product.condition.is_not(None),
+            )
             .group_by(Product.condition)
         )
     ).all()
@@ -186,7 +192,12 @@ async def search_results(
         await session.execute(
             select(Product.country, func.count())
             .join(SearchResult, SearchResult.product_id == Product.id)
-            .where(SearchResult.search_id == srch.id, SearchResult.is_duplicate.is_(False), Product.country.is_not(None))
+            .where(
+                SearchResult.search_id == srch.id,
+                SearchResult.is_duplicate.is_(False),
+                SearchResult.is_rejected.is_(False),
+                Product.country.is_not(None),
+            )
             .group_by(Product.country)
         )
     ).all()

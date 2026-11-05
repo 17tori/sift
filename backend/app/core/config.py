@@ -79,6 +79,12 @@ class Settings(BaseSettings):
     vision_provider: Literal["gemini", "anthropic", "openai_compatible", "none"] = "gemini"
     gemini_api_key: SecretStr = SecretStr("")
     gemini_model: str = "gemini-3.8-flash"
+    # Gemini compares the user's photo with each found listing's photo: real similarity %, wrong items hidden
+    verify_provider: Literal["gemini", "none"] = "gemini"
+    verify_model: str = ""  # empty: GEMINI_MODEL
+    verify_max_candidates: int = 36
+    verify_batch_size: int = 12
+    verify_reject_below: int = 35  # hide listings scored below this (not in "discover" mode)
     anthropic_api_key: SecretStr = SecretStr("")
     anthropic_model: str = "claude-opus-5-5"
     anthropic_effort: Literal["low", "medium", "high"] = "low"

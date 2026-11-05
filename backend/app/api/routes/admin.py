@@ -301,7 +301,9 @@ async def integrations(_: User = Depends(admin_user), session: AsyncSession = De
     ai = {
         "vision": {
             "provider": s.vision_provider,
-            "model": s.anthropic_model if s.vision_provider == "anthropic" else s.openai_compat_model,
+            "model": {"anthropic": s.anthropic_model, "gemini": s.gemini_model, "openai_compatible": s.openai_compat_model}.get(
+                s.vision_provider
+            ),
             "ok": int(ai_raw.get("vision:ok", 0)),
             "fail": int(ai_raw.get("vision:fail", 0)),
             "last_ok": ai_raw.get("vision:last_ok"),
@@ -314,6 +316,14 @@ async def integrations(_: User = Depends(admin_user), session: AsyncSession = De
             "fail": int(ai_raw.get("embedding:fail", 0)),
             "last_ok": ai_raw.get("embedding:last_ok"),
             "last_error": ai_raw.get("embedding:last_error"),
+        },
+        "verify": {
+            "provider": s.verify_provider,
+            "model": (s.verify_model or s.gemini_model) if s.verify_provider == "gemini" else None,
+            "ok": int(ai_raw.get("verify:ok", 0)),
+            "fail": int(ai_raw.get("verify:fail", 0)),
+            "last_ok": ai_raw.get("verify:last_ok"),
+            "last_error": ai_raw.get("verify:last_error"),
         },
     }
     return {"marketplaces": mk, "ai": ai}

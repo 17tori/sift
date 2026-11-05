@@ -24,6 +24,7 @@ from sqlalchemy import select, text, update
 from app.ai.base import AIUnavailable, ImageAnalysis
 from app.ai.embeddings import build_embedding_provider
 from app.ai.palette import palette
+from app.ai.verify import GeminiVerifier, verify_ready
 from app.ai.vision import build_vision_analyzer
 from app.core.config import get_settings
 from app.core.redis import get_redis
@@ -254,6 +255,56 @@ class SearchRun:
             )
         return len(rows)
 
+    async def verify(self) -> None:
+        """Gemini compares the user's photo with each listing's stored photo (see app/ai/verify.py)."""
+        st = get_settings()
+        if not verify_ready() or not self.image:
+            return
+        await _set(self.search.id, stage="ranking")
+        async with session_scope() as s:
+            rows = (
+                await s.execute(
+                    select(SearchResult.id, SearchResult.text_rank, SearchResult.cosine, Product.thumb_key)
+                    .join(Product, Product.id == SearchResult.product_id)
+                    .where(SearchResult.search_id == self.search.id, Product.thumb_key.is_not(None))
+                )
+            ).all()
+        # Best candidates first: model similarity if any, then each source's own order (Lens hits lead).
+        rows = sorted(rows, key=lambda r: (-(r.cosine if r.cosine is not None else -1.0), r.text_rank))[: st.verify_max_candidates]
+        imgs = await read_thumbs({r.id: r.thumb_key for r in rows})
+        picked = [r.id for r in rows if r.id in imgs]
+        if not picked:
+            return
+        a = self.analysis
+        hint = None
+        if a is not None:
+            hint = a.title_en + (f", brand {a.brand.name}" if a.brand.name and a.brand.confidence != "none" else "")
+        verifier = GeminiVerifier()
+        try:
+            verdicts = await verifier.verify(self.image, [imgs[i] for i in picked], hint)
+            await _ai_stat("verify", True)
+        except AIUnavailable as e:
+            log.warning("visual verification unavailable: %s", e)
+            await _ai_stat("verify", False, str(e))
+            return
+        scored = {picked[k]: v for k, v in verdicts.items()}
+        if not scored:
+            return
+        reject = self.search.mode != "discover"
+        keep = sum(1 for v in scored.values() if v.score >= st.verify_reject_below)
+        hide = reject and keep >= 3  # never empty the page: with almost nothing left, show the closest ones
+        async with session_scope() as s:
+            for rid, v in scored.items():
+                await s.execute(
+                    update(SearchResult)
+                    .where(SearchResult.id == rid)
+                    .values(cosine=v.score / 100, similarity_pct=v.score, is_rejected=hide and v.score < st.verify_reject_below)
+                )
+            srch = await s.get(SearchSession, self.search.id)
+            if srch is not None:
+                srch.analysis = {**(srch.analysis or {}), "similarity_model": verifier.model_id}
+        log.info("verify %s: %d scored, %d kept", self.search.id, len(scored), keep)
+
     async def rank(self) -> None:
         await _set(self.search.id, stage="ranking")
         self.fx = await fx.rates()
@@ -297,7 +348,7 @@ class SearchRun:
                 .values(
                     reference_price=ref,
                     reference_currency=self.display_currency if ref is not None else None,
-                    results_count=sum(1 for c in cands if not c.duplicate),
+                    results_count=sum(1 for r, _ in rows if not r.is_duplicate and not r.is_rejected),
                 )
             )
 
@@ -325,6 +376,7 @@ async def run_search(search_id: uuid.UUID) -> None:
             await _fail(search_id, "not_a_product", refund=True, detail=run.analysis.rejection_reason)
             return
         n_active = await run.run_providers()
+        await run.verify()
         await run.rank()
         async with session_scope() as s:
             srch = await s.get(SearchSession, search_id, with_for_update=True)

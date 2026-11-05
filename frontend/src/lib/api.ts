@@ -45,3 +45,13 @@ export function qs(params: Record<string, string | number | null | undefined>): 
   const s = u.toString();
   return s ? `?${s}` : "";
 }
+
+/** Telegram reports "paid" client-side; the purchase is granted only after the bot receives successful_payment. */
+export async function waitPaid(intentId: string, tries = 20): Promise<boolean> {
+  for (let i = 0; i < tries; i++) {
+    const r = await api.get<{ status: string }>(`/api/v1/payments/intents/${intentId}`);
+    if (r.status === "paid") return true;
+    await new Promise((res) => setTimeout(res, 1500));
+  }
+  return false;
+}

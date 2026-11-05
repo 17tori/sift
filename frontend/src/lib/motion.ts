@@ -99,3 +99,23 @@ export const wordmarkReveal = {
 /** Arch path in objectBoundingBox units; rect path has the same segment count so clip-path can morph. */
 export const ARCH_PATH = "M0,1 L0,.42 C0,.18 .26,.04 .5,0 C.74,.04 1,.18 1,.42 L1,1 Z";
 export const RECT_PATH = "M0,1 L0,0 C0,0 .26,0 .5,0 C.74,0 1,0 1,0 L1,1 Z";
+
+/** Route enter: a short rise; exits are instant so shared elements can hand over. */
+export const routeEnter = {
+  initial: { opacity: 0, y: 10 },
+  animate: { opacity: 1, y: 0 },
+  transition: { duration: dur.screen, ease: ease.outExpo },
+};
+
+/** Generic list cascade for rows (watches, gifts, offers). */
+export const rowVariants: Variants = {
+  hidden: { opacity: 0, x: -8 },
+  show: (i: number = 0) => ({ opacity: 1, x: 0, transition: { duration: dur.element, ease: ease.outExpo, delay: cascadeDelay(i, stagger.ledger) } }),
+};
+
+/** Postcard placed on the table: drops in, overshoots a little rotation, settles. */
+export const postcardIn = {
+  initial: { opacity: 0, y: 40, rotate: -4, scale: 0.94 },
+  animate: { opacity: 1, y: 0, rotate: -1.5, scale: 1 },
+  transition: { type: "spring", stiffness: 180, damping: 18 } as const,
+};

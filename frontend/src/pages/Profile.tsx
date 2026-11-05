@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { IconChat, IconGift, IconSettings, IconShield, IconSpark, IconStar } from "../components/icons";
+import { IconBell, IconChat, IconGift, IconSettings, IconShield, IconSpark, IconStar } from "../components/icons";
 import { Badge, Card, ErrorView, PageHeader, Row, Skeleton } from "../components/ui";
 import { date, num, timeLeft } from "../lib/format";
 import { useMe } from "../lib/queries";
@@ -51,6 +51,8 @@ export default function Profile() {
         <Card className="divide-y divide-line overflow-hidden">
           <Row icon={<IconSpark size={18} />} title="Подписка" value={me.plan.title} onClick={() => nav("/subscription")} />
           <Row icon={<IconStar size={18} />} title="История платежей" onClick={() => nav("/subscription#payments")} />
+          <Row icon={<IconBell size={18} />} title="Наблюдение за вещами" value={me.plan.features.watch_limit ? undefined : "ULTRA"} onClick={() => nav("/saved?tab=watch")} />
+          <Row icon={<IconGift size={18} />} title="Подарить поиски" value="⭐" onClick={() => nav("/gifts")} />
           <Row icon={<IconGift size={18} />} title="Пригласить друзей" onClick={() => nav("/referral")} />
           <Row icon={<IconSettings size={18} />} title="Настройки" onClick={() => nav("/settings")} />
           <Row icon={<IconChat size={18} />} title="Поддержка" onClick={() => nav("/support")} />

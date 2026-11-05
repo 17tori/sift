@@ -27,7 +27,14 @@
 |---|---|
 | `https://t.me/<bot>?start=ref_<КОД>` | бот с реферальным кодом (код есть в Mini App → «Пригласить друзей») |
 | `https://t.me/<bot>/app?startapp=search_<uuid>` | Mini App сразу на результатах поиска |
-| `https://t.me/<bot>/app?startapp=subscription` | Mini App на экране подписки |
+| `https://t.me/<bot>/app?startapp=subscription` | Mini App на экране подписки (также `gifts`, `saved`, `watches`, `referral`) |
+| `https://t.me/<bot>/app?startapp=f_<token>` | находка, которой поделились открыткой; новый пользователь засчитывается как приглашённый |
+| `https://t.me/<bot>/app?startapp=g_<code>` | подарочные поиски: экран «Принять подарок», ссылка одноразовая |
+
+Ссылки вида `/app?startapp=` требуют, чтобы у Mini App в BotFather был **short name `app`**
+(`/newapp` или Bot Settings → Configure Mini App). Открытки находок Telegram скачивает по
+`PUBLIC_BASE_URL/api/v1/shares/<token>/card.jpg`, поэтому `PUBLIC_BASE_URL` должен открываться из интернета.
+Если клиент Telegram старше 8.0 или prepared message не создался, Mini App открывает обычное окно «Поделиться» со ссылкой.
 
 ## 4. Платежи
 

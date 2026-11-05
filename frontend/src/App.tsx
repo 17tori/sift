@@ -1,9 +1,11 @@
-import { AnimatePresence } from "motion/react";
-import { lazy, Suspense, useEffect, useState } from "react";
-import { Route, Routes, useLocation, useNavigate } from "react-router-dom";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Route, Routes, useLocation, useNavigate, useNavigationType } from "react-router-dom";
 import { BottomNav } from "./components/BottomNav";
 import { Logo } from "./components/Logo";
 import { Splash } from "./components/Splash";
+import { Toaster } from "./components/Toaster";
+import { routeEnter } from "./lib/motion";
 import { Spinner } from "./components/ui";
 import { ApiError } from "./lib/api";
 import { useConfig, useMe } from "./lib/queries";
@@ -17,6 +19,10 @@ import Subscription from "./pages/Subscription";
 import Settings from "./pages/Settings";
 import Support from "./pages/Support";
 import Referral from "./pages/Referral";
+import Item from "./pages/Item";
+import Gifts from "./pages/Gifts";
+import GiftRedeem from "./pages/GiftRedeem";
+import SharedFind from "./pages/SharedFind";
 const Admin = lazy(() => import("./pages/admin/Admin"));
 
 const TABS = new Set(["/", "/saved", "/history", "/profile"]);
@@ -60,7 +66,10 @@ function useBack() {
   }, [pathname, navigate]);
 }
 
-/** Deep links: t.me/<bot>/app?startapp=search_<uuid> or a WebApp URL with path /search/<uuid>. */
+/**
+ * Deep links: t.me/<bot>/app?startapp=search_<uuid>, f_<token> (shared find), g_<code> (gift),
+ * or a named screen. The server already attributed the referral for f_/g_ at sign-up.
+ */
 function useStartParam() {
   const navigate = useNavigate();
   useEffect(() => {
@@ -68,8 +77,35 @@ function useStartParam() {
     if (!p) return;
     const m = /^search[_/]([0-9a-f-]{36})$/i.exec(p);
     if (m) navigate(`/search/${m[1]}`, { replace: true });
-    else if (p === "subscription" || p === "referral" || p === "history" || p === "saved") navigate(`/${p}`, { replace: true });
+    else if (/^f_[\w-]{4,32}$/.test(p)) navigate(`/find/${p.slice(2)}`, { replace: true });
+    else if (/^g_[\w-]{4,32}$/.test(p)) navigate(`/gift/${p.slice(2)}`, { replace: true });
+    else if (["subscription", "referral", "history", "saved", "gifts"].includes(p)) navigate(`/${p}`, { replace: true });
+    else if (p === "watches") navigate("/saved?tab=watch", { replace: true });
   }, [navigate]);
+}
+
+/** Scroll position per history entry: back to results lands where the user left. New screens start at the top. */
+function useScrollMemory() {
+  const loc = useLocation();
+  const type = useNavigationType();
+  const saved = useRef(new Map<string, number>());
+  const prev = useRef(loc.key);
+  useLayoutEffect(() => {
+    const map = saved.current;
+    if (type === "POP") {
+      const y = map.get(loc.key) ?? 0;
+      let tries = 0;
+      const restore = () => {
+        window.scrollTo(0, y);
+        if (Math.abs(window.scrollY - y) > 2 && tries++ < 20) requestAnimationFrame(restore);
+      };
+      restore();
+    } else window.scrollTo(0, 0);
+    prev.current = loc.key;
+    const onScroll = () => map.set(prev.current, window.scrollY);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, [loc.key, type]);
 }
 
 function OutsideTelegram({ name, bot }: { name: string; bot?: string }) {
@@ -102,6 +138,9 @@ export default function App() {
   useAccent(config.data?.brand.accent);
   useBack();
   useStartParam();
+  useScrollMemory();
+  const reduce = useReducedMotion();
+  const location = useLocation();
   const minSplash = useMinDelay(splashSeen() ? 0 : 2000);
 
   useEffect(() => {
@@ -120,9 +159,16 @@ export default function App() {
     <>
     {splash}
     <div className="mx-auto min-h-dvh max-w-xl pt-[var(--tg-safe-top,0px)]" style={{ paddingBottom: showNav ? "calc(76px + var(--tg-safe-bottom, 0px))" : "var(--tg-safe-bottom, 0px)" }}>
-      <Routes>
+      {/* The item screen skips the fade: its photo flies in from the tapped card (shared layoutId). */}
+      <motion.div key={pathname.includes("/item/") ? "item" : pathname}
+        initial={reduce || pathname.includes("/item/") ? false : routeEnter.initial} animate={routeEnter.animate} transition={routeEnter.transition}>
+      <Routes location={location}>
         <Route path="/" element={<Home />} />
         <Route path="/search/:id" element={<SearchPage />} />
+        <Route path="/search/:sid/item/:pid" element={<Item />} />
+        <Route path="/find/:token" element={<SharedFind />} />
+        <Route path="/gift/:code" element={<GiftRedeem />} />
+        <Route path="/gifts" element={<Gifts />} />
         <Route path="/saved" element={<Saved />} />
         <Route path="/history" element={<History />} />
         <Route path="/profile" element={<Profile />} />
@@ -133,7 +179,9 @@ export default function App() {
         <Route path="/admin/*" element={<Suspense fallback={<div className="flex justify-center py-20"><Spinner /></div>}><Admin /></Suspense>} />
         <Route path="*" element={<Home />} />
       </Routes>
+      </motion.div>
       {showNav && <BottomNav />}
+      <Toaster />
     </div>
     </>
   );

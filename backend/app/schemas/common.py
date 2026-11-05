@@ -315,6 +315,7 @@ class FavoriteOut(BaseModel):
     saved_currency: str | None
     product: ProductOut
     collection_id: int | None = None
+    search_id: uuid.UUID | None = None
 
 
 class SupportIn(BaseModel):

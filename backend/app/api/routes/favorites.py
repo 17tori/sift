@@ -40,6 +40,7 @@ async def list_favorites(user: User = Depends(current_user), session: AsyncSessi
             saved_currency=f.saved_currency,
             product=product_out(p, None, True, _cur(user), rates),
             collection_id=f.collection_id,
+            search_id=f.search_id,
         )
         for f, p in rows
     ]
@@ -85,6 +86,8 @@ async def add_favorite(body: FavoriteIn, user: User = Depends(current_user), ses
         saved_price=fav.saved_price,
         saved_currency=fav.saved_currency,
         product=product_out(product, None, True, _cur(user), await fx.rates()),
+        collection_id=fav.collection_id,
+        search_id=fav.search_id,
     )
 
 

@@ -19,6 +19,8 @@ type Extra = {
   previousCurrency?: string | null;
   /** "arch": exhibit card with a pointed-arch top — used in the collection. */
   frame?: "rounded" | "arch";
+  /** Tap: open the item screen. Without it the listing opens on the marketplace. */
+  onOpen?: () => void;
 };
 
 const dotColor = (v: number) => (v >= 75 ? "#7CE3A6" : v >= 45 ? "#F5F3EE" : "#A6A6A6");
@@ -100,7 +102,7 @@ function Price({ p, previousPrice, previousCurrency }: { p: Product } & Pick<Ext
   );
 }
 
-export function ProductCard({ p, view, onFavorite, index, duplicate, previousPrice, previousCurrency, frame = "rounded" }:
+export function ProductCard({ p, view, onFavorite, index, duplicate, previousPrice, previousCurrency, frame = "rounded", onOpen }:
   { p: Product; view: View; onFavorite: (on: boolean) => void } & Extra) {
   const gone = p.available === false;
   const delay = index !== undefined && index < 10 ? index * 0.04 : 0;
@@ -114,7 +116,7 @@ export function ProductCard({ p, view, onFavorite, index, duplicate, previousPri
     animate: "show",
     whileTap: { scale: press.card },
     transition: spring.soft,
-    onClick: () => openExternal(p.url),
+    onClick: () => { haptic.tap(); if (onOpen) onOpen(); else openExternal(p.url); },
   };
 
   if (view === "list") {

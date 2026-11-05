@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { IconCopy, IconGift } from "../components/icons";
 import { Button, Card, ErrorView, PageHeader, Skeleton } from "../components/ui";
 import { api } from "../lib/api";
@@ -9,6 +10,7 @@ import type { Referral as R } from "../lib/types";
 export default function Referral() {
   const q = useQuery({ queryKey: ["referral"], queryFn: () => api.get<R>("/api/v1/referrals") });
   const [copied, setCopied] = useState(false);
+  const nav = useNavigate();
   if (q.isError) return <ErrorView error={q.error} retry={() => q.refetch()} />;
   const r = q.data;
   const copy = async () => {
@@ -43,6 +45,12 @@ export default function Referral() {
                 <Card key={l as string} className="p-4"><p className="font-mono text-2xl">{v}</p><p className="text-xs text-ink-3">{l}</p></Card>
               ))}
             </div>
+            <Card className="flex items-center gap-4 p-4" onClick={() => nav("/gifts")}>
+              <span className="font-serif text-[34px] leading-none">⭐</span>
+              <div className="flex-1"><p className="text-[15px] font-medium">Подарить поиски</p><p className="text-xs text-ink-2">Пакет поисков другу за Stars, одноразовой ссылкой</p></div>
+              <span className="caption text-ink-3">→</span>
+            </Card>
+            <p className="px-1 text-xs text-ink-3">Поделиться можно и конкретной находкой: на экране товара нажмите «Открытка». Новые пользователи по ней тоже считаются приглашёнными.</p>
             <p className="px-1 text-xs text-ink-3">Бонус начисляется только за новых пользователей и только один раз. Пригласить самого себя нельзя.</p>
           </>
         )}

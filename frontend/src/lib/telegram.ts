@@ -19,6 +19,8 @@ interface TgWebApp {
   openLink(url: string, opts?: { try_instant_view?: boolean }): void;
   openTelegramLink(url: string): void;
   openInvoice(url: string, cb?: (status: InvoiceStatus) => void): void;
+  /** Bot API 8.0: share a message prepared with savePreparedInlineMessage. */
+  shareMessage?(id: string, cb?: (sent: boolean) => void): void;
   showConfirm(msg: string, cb: (ok: boolean) => void): void;
   showAlert(msg: string, cb?: () => void): void;
   onEvent(e: string, cb: () => void): void;
@@ -123,4 +125,30 @@ export function backButton(onBack: (() => void) | null): () => void {
   return () => {
     tg.BackButton.offClick(onBack);
   };
+}
+
+/** Prepared inline message (photo + button) when the client supports it; otherwise the t.me/share picker. */
+export function shareMessage(preparedId: string | null, link: string, text: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    if (preparedId && tg?.shareMessage && tg.isVersionAtLeast("8.0")) {
+      try {
+        tg.shareMessage(preparedId, (sent) => resolve(!!sent));
+        return;
+      } catch {
+        /* fall through to the share picker */
+      }
+    }
+    openTelegram(`https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(text)}`);
+    resolve(true);
+  });
+}
+
+export async function copyText(text: string): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(text);
+    haptic.success();
+    return true;
+  } catch {
+    return false;
+  }
 }

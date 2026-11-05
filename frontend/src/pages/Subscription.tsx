@@ -4,7 +4,7 @@ import { Ornament, Stamp } from "../components/archive";
 import { useState } from "react";
 import { IconStar } from "../components/icons";
 import { Badge, Button, Card, cx, ErrorView, PageHeader, SectionTitle, Skeleton, Toggle } from "../components/ui";
-import { api } from "../lib/api";
+import { api, waitPaid } from "../lib/api";
 import { date, MODE_LABEL, plural, timeLeft } from "../lib/format";
 import { cardVariants, ease } from "../lib/motion";
 import { useMe, usePlans } from "../lib/queries";
@@ -20,6 +20,7 @@ function features(p: Plan): string[] {
   out.push((f.history_days ?? 0) >= 3650 ? "Полная история поисков" : `История ${f.history_days} дней`);
   if (f.deep_analysis) out.push("Глубокий AI-анализ фото");
   if (f.price_alerts) out.push("Уведомления о снижении цены");
+  if ((f.watch_limit ?? 0) > 0) out.push(`Отслеживание ${f.watch_limit} ${plural(f.watch_limit ?? 0, "вещи", "вещей", "вещей")}: дешевле или на новой площадке`);
   if (p.priority > 0) out.push(p.priority >= 9 ? "Максимальный приоритет" : "Приоритетная обработка");
   if (f.early_access) out.push("Ранний доступ к новым функциям");
   return out;
@@ -47,15 +48,6 @@ function PaidSeal() {
       ))}
     </motion.div>
   );
-}
-
-async function waitPaid(intentId: string): Promise<boolean> {
-  for (let i = 0; i < 20; i++) {
-    const r = await api.get<{ status: string }>(`/api/v1/payments/intents/${intentId}`);
-    if (r.status === "paid") return true;
-    await new Promise((res) => setTimeout(res, 1500));
-  }
-  return false;
 }
 
 function TrialCard({ me }: { me: Me }) {

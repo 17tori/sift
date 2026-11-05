@@ -21,6 +21,7 @@ export interface Plan {
     price_alerts?: boolean;
     deep_analysis?: boolean;
     early_access?: boolean;
+    watch_limit?: number;
   };
 }
 
@@ -156,6 +157,16 @@ export interface Results {
   next_offset: number | null;
   facets: Record<string, { value: string; count: number }[]>;
   filters_locked: boolean;
+  price_range: PriceRange | null;
+}
+
+/** The same item (visually verified) on several marketplaces. */
+export interface PriceRange {
+  count: number;
+  marketplaces: number;
+  currency: string | null;
+  min: Product;
+  max: Product;
 }
 
 export interface Favorite {
@@ -165,6 +176,8 @@ export interface Favorite {
   saved_price: string | null;
   saved_currency: string | null;
   product: Product;
+  collection_id: number | null;
+  search_id: string | null;
 }
 
 export interface HistoryItem {
@@ -197,4 +210,90 @@ export interface Referral {
   reward_registration: number;
   reward_first_purchase: number;
   invitee_bonus: number;
+}
+
+export interface PricePoint {
+  price: string;
+  currency: string;
+  at: string;
+}
+
+export interface Item {
+  search_id: string;
+  product: Product;
+  offers: Product[];
+  similar: Product[];
+  price_history: PricePoint[];
+  favorite_id: number | null;
+  collection_id: number | null;
+  watching: boolean;
+}
+
+export interface Collection {
+  id: number;
+  title: string;
+  count: number;
+  cover_url: string | null;
+}
+
+export interface Watch {
+  id: number;
+  search_id: string;
+  title: string | null;
+  image_url: string | null;
+  active: boolean;
+  best_price: string | null;
+  best_currency: string | null;
+  runs: number;
+  last_run_at: string | null;
+  last_found_at: string | null;
+  last_search_id: string | null;
+}
+
+export interface Watches {
+  items: Watch[];
+  limit: number;
+}
+
+export interface Share {
+  token: string;
+  link: string;
+  image_url: string;
+  text: string;
+  prepared_message_id: string | null;
+}
+
+export interface SharedFind {
+  token: string;
+  sharer_name: string;
+  product: Product;
+  search_id: string | null;
+}
+
+export interface GiftPack {
+  code: string;
+  searches: number;
+  stars: number;
+}
+
+export interface Gift {
+  code: string;
+  pack: string;
+  searches: number;
+  status: "active" | "redeemed" | "refunded" | string;
+  link: string;
+  created_at: string;
+  redeemed_at: string | null;
+}
+
+export interface Invoice {
+  intent_id: string;
+  invoice_link: string;
+  amount_stars: number;
+  recurring: boolean;
+}
+
+export interface GiftRedeemOut {
+  searches: number;
+  from_name: string;
 }

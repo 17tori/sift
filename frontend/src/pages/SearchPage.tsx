@@ -5,6 +5,8 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { Arch, ArchImage, CountUp, LedgerRow, SectionMark } from "../components/archive";
 import { IconCheck, IconClose, IconFilter, IconGrid, IconInfo, IconList, IconLock, IconRefresh, IconSearch } from "../components/icons";
 import { ProductCard, ProductSkeleton } from "../components/ProductCard";
+import { PriceSummary } from "../components/PriceRange";
+import { WatchButton } from "../components/WatchButton";
 import { Button, Chip, cx, Empty, ErrorView, Field, inputClass, Segmented, Sheet, Spinner } from "../components/ui";
 import { api, qs } from "../lib/api";
 import { CATEGORY_LABEL, CONDITION_LABEL, ERROR_LABEL, MODE_LABEL, plural } from "../lib/format";
@@ -211,6 +213,7 @@ export default function SearchPage() {
   const f = filters[id] ?? EMPTY_FILTERS;
   const [sheet, setSheet] = useState(false);
   const fav = useToggleFavorite();
+  const nav = useNavigate();
   const names = useMemo(() => Object.fromEntries((cfg?.marketplaces ?? []).map((m) => [m.code, m.name])), [cfg]);
 
   const search = useQuery({
@@ -287,7 +290,15 @@ export default function SearchPage() {
           </div>
         )}
         {!live && <div className="mt-3"><ResultTitle s={s} /></div>}
+        {s.status === "completed" && s.results_count > 0 && (
+          <motion.div className="mt-5" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+            <WatchButton searchId={id} />
+          </motion.div>
+        )}
         <ProviderStamps s={s} names={names} />
+        {s.status === "completed" && first?.price_range && (
+          <PriceSummary range={first.price_range} onOpen={(p) => nav(`/search/${id}/item/${p.product_id}`)} />
+        )}
         {s.status === "completed" && !s.has_similarity && (
           <p className="mt-3 text-[12px] leading-[17px] text-ink-2">Визуальная модель была недоступна, поэтому процент сходства не показан. Результаты отсортированы по релевантности площадок.</p>
         )}
@@ -338,6 +349,7 @@ export default function SearchPage() {
               <AnimatePresence initial={false}>
                 {items.map((p, i) => (
                   <ProductCard key={p.product_id} p={p} view={view} index={i}
+                    onOpen={() => nav(`/search/${id}/item/${p.product_id}`)}
                     onFavorite={(on) => fav.mutate({ productId: p.product_id, searchId: id, on })} />
                 ))}
               </AnimatePresence>

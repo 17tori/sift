@@ -102,7 +102,7 @@ export default function App() {
   useAccent(config.data?.brand.accent);
   useBack();
   useStartParam();
-  const minSplash = useMinDelay(splashSeen() ? 0 : 900);
+  const minSplash = useMinDelay(splashSeen() ? 0 : 2000);
 
   useEffect(() => {
     if (config.data) document.title = config.data.brand.name;
@@ -139,7 +139,7 @@ export default function App() {
   );
 }
 
-/** Splash holds for its 900 ms ritual on the first open of a session only. */
+/** Splash holds for its ~2 s ritual on the first open of a session only. */
 function useMinDelay(ms: number): boolean {
   const [done, setDone] = useState(ms === 0);
   useEffect(() => {

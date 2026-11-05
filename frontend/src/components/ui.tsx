@@ -2,7 +2,7 @@ import { AnimatePresence, animate, motion, useMotionValue, useReducedMotion, use
 import { type ButtonHTMLAttributes, type ReactNode, useEffect } from "react";
 import { dur, ease, press, shake, spring, t } from "../lib/motion";
 import { haptic } from "../lib/telegram";
-import { Rosette } from "./archive";
+import { Sieve } from "./Sieve";
 import { IconClose, IconLock } from "./icons";
 
 export function cx(...c: (string | false | null | undefined)[]): string {
@@ -108,12 +108,12 @@ export function Toggle({ checked, onChange, disabled, label }: { checked: boolea
  * Empty state: breathing rosette + Cormorant title. `title` may contain one *word* in asterisks — it is set in italic.
  * `icon` is kept for API compatibility and rendered small under the rosette when given.
  */
-export function Empty({ icon, title, text, action }: { icon?: ReactNode; title: string; text?: string; action?: ReactNode }) {
+export function Empty({ title, text, action }: { /** kept for call sites; the sieve replaces icons */ icon?: ReactNode; title: string; text?: string; action?: ReactNode }) {
   return (
     <motion.div className="flex flex-col items-center px-8 py-14 text-center" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={t.element}>
-      <div className="relative text-ink">
-        <Rosette size={120} breathing />
-        {icon && <span className="absolute inset-0 grid place-items-center text-ink-2 [&_svg]:h-5 [&_svg]:w-5">{icon}</span>}
+      {/* The sieve without its blue dot: nothing was found. */}
+      <div className="text-ink">
+        <Sieve cols={11} accent={null} width={84} animate="breathe" />
       </div>
       <h3 className="mt-7 font-serif text-[34px] leading-[38px] font-light">{italicize(title)}</h3>
       {text && <p className="mt-2.5 max-w-[290px] text-[15px] leading-[22px] text-ink-2">{text}</p>}

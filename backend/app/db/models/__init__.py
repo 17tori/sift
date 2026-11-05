@@ -1,4 +1,5 @@
 from app.db.models.billing import Payment, PaymentIntent, Plan, Subscription
+from app.db.models.growth import Collection, Gift, Share, Watch
 from app.db.models.search import (
     Favorite,
     PriceHistory,
@@ -13,7 +14,9 @@ from app.db.models.users import User
 __all__ = [
     "AdminLog",
     "AppSetting",
+    "Collection",
     "Favorite",
+    "Gift",
     "MarketplaceStatus",
     "Payment",
     "PaymentIntent",
@@ -25,6 +28,8 @@ __all__ = [
     "ReferralReward",
     "SearchResult",
     "SearchSession",
+    "Share",
     "Subscription",
     "User",
+    "Watch",
 ]

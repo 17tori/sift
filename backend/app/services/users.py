@@ -95,6 +95,12 @@ async def get_or_create_user(
             user.bot_started = True
     else:
         code = parse_referral_payload(start_param)
+        if code is None and start_param and start_param.startswith(("f_", "g_")):
+            # a shared find or a gift link also counts as an invitation from its sender
+            from app.services import gifts, shares
+
+            token = start_param[2:34]
+            code = await (shares.referral_code_for(session, token) if start_param[0] == "f" else gifts.buyer_referral_code(session, token))
         if code:
             await referrals.attach_referrer(session, user, code)
         log.info("user registered", extra={"ctx": {"user_id": user.id, "tg": user.telegram_id}})

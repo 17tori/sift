@@ -7,7 +7,7 @@ from aiogram.types import Message, PreCheckoutQuery
 
 from app.bot import keyboards
 from app.db.session import session_scope
-from app.services import payments
+from app.services import gifts, payments
 
 router = Router(name="payments")
 log = logging.getLogger(__name__)
@@ -48,7 +48,16 @@ async def on_successful_payment(message: Message) -> None:
         )
         sub = outcome.subscription
         plan_code, expires = (sub.plan_code, sub.expires_at) if sub else (None, None)
+        gift = outcome.gift
+        gift_code, gift_n = (gift.code, gift.searches) if gift else (None, 0)
     if outcome.duplicate:
+        return
+    if gift_code:
+        link = gifts.gift_link(gift_code)
+        await message.answer(
+            f"🎁 Подарок готов: <b>{gift_n} поисков</b>.\nПерешлите ссылку другу, она сработает один раз:\n{link}",
+            reply_markup=keyboards.share_link("Отправить другу", link, f"Дарю тебе {gift_n} поисков по фото в SIFT"),
+        )
         return
     if sub is None:
         await message.answer("Оплата получена, но не удалось сопоставить её с тарифом. Мы уже разбираемся и свяжемся с вами.")

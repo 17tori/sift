@@ -52,7 +52,8 @@ async def db():
         await s.execute(
             text(
                 "TRUNCATE users, subscriptions, payment_intents, payments, search_sessions, search_results, products, "
-                "product_embeddings, price_history, favorites, referrals, referral_rewards, admin_logs, marketplace_status "
+                "product_embeddings, price_history, favorites, referrals, referral_rewards, admin_logs, marketplace_status, "
+                "collections, watches, shares, gifts "
                 "RESTART IDENTITY CASCADE"
             )
         )

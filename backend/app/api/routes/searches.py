@@ -19,8 +19,9 @@ from app.core.redis import get_redis
 from app.db.models import Favorite, Product, SearchResult, SearchSession, User
 from app.marketplace import registry
 from app.schemas.common import HistoryItem, HistoryOut, ResultsOut, SearchOut
-from app.services import fx, search_service, subscriptions
+from app.services import fx, offers, search_service, subscriptions
 from app.services.media import signed_media_url
+from app.services.offers import price_range
 
 # Shown results: not a duplicate, not hidden by visual verification.
 _VISIBLE = (SearchResult.is_duplicate.is_(False), SearchResult.is_rejected.is_(False))
@@ -30,7 +31,7 @@ router = APIRouter(prefix="/api/v1")
 
 async def _own_search(session: AsyncSession, user: User, search_id: uuid.UUID) -> SearchSession:
     s = await session.get(SearchSession, search_id)
-    if s is None or s.user_id != user.id or s.hidden:
+    if s is None or s.user_id != user.id or (s.hidden and not (s.options or {}).get("watch_id")):
         raise NotFound("search_not_found", "Поиск не найден.")
     return s
 
@@ -202,6 +203,7 @@ async def search_results(
         )
     ).all()
     nxt = offset + limit
+    rng = price_range(await offers.same_item(session, srch.id, currency, rates), currency) if offset == 0 else None
     return ResultsOut(
         items=items,
         total=int(total or 0),
@@ -212,6 +214,7 @@ async def search_results(
             "country": [{"value": k, "count": v} for k, v in country_rows],
         },
         filters_locked=locked,
+        price_range=rng,
     )
 
 

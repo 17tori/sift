@@ -39,6 +39,7 @@ async def list_favorites(user: User = Depends(current_user), session: AsyncSessi
             saved_price=f.saved_price,
             saved_currency=f.saved_currency,
             product=product_out(p, None, True, _cur(user), rates),
+            collection_id=f.collection_id,
         )
         for f, p in rows
     ]

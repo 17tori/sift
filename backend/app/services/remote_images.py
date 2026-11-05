@@ -30,12 +30,12 @@ async def _public_host(host: str) -> bool:
     return True
 
 
-def to_thumb_jpeg(data: bytes) -> bytes | None:
+def to_thumb_jpeg(data: bytes, side: int = THUMB_SIDE) -> bytes | None:
     Image.MAX_IMAGE_PIXELS = 30_000_000
     try:
         with Image.open(io.BytesIO(data)) as im:
             im = im.convert("RGB")
-            im.thumbnail((THUMB_SIDE, THUMB_SIDE))
+            im.thumbnail((side, side))
             out = io.BytesIO()
             im.save(out, "JPEG", quality=85)
             return out.getvalue()
@@ -43,7 +43,7 @@ def to_thumb_jpeg(data: bytes) -> bytes | None:
         return None
 
 
-async def fetch_thumb(client: httpx.AsyncClient, url: str) -> bytes | None:
+async def fetch_thumb(client: httpx.AsyncClient, url: str, side: int = THUMB_SIDE) -> bytes | None:
     s = get_settings()
     u = urlparse(url)
     if u.scheme not in ("http", "https") or not u.hostname or not await _public_host(u.hostname):
@@ -59,7 +59,7 @@ async def fetch_thumb(client: httpx.AsyncClient, url: str) -> bytes | None:
                     return None
     except httpx.HTTPError:
         return None
-    return await asyncio.to_thread(to_thumb_jpeg, bytes(buf))
+    return await asyncio.to_thread(to_thumb_jpeg, bytes(buf), side)
 
 
 async def fetch_many(urls: list[str], concurrency: int = 12) -> dict[str, bytes]:
@@ -77,3 +77,10 @@ async def fetch_many(urls: list[str], concurrency: int = 12) -> dict[str, bytes]
 
         await asyncio.gather(*(one(u) for u in dict.fromkeys(urls)))
     return out
+
+
+async def fetch_one(url: str, side: int = THUMB_SIDE) -> bytes | None:
+    async with httpx.AsyncClient(
+        timeout=httpx.Timeout(8.0, connect=4.0), follow_redirects=True, headers={"User-Agent": f"{get_settings().brand_name}/1.0"}
+    ) as client:
+        return await fetch_thumb(client, url, side)

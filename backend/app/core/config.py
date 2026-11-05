@@ -89,7 +89,11 @@ class Settings(BaseSettings):
     verify_max_candidates: int = 36
     verify_batch_size: int = 8
     verify_timeout_seconds: float = 45.0
-    verify_reject_below: int = 35  # hide listings scored below this (not in "discover" mode)
+    verify_reject_below: int = 35
+    same_item_threshold: int = 70  # similarity from which listings count as the same item (price comparison)
+    watch_interval_hours: int = (
+        24  # item watches: how often the saved photo is searched again  # hide listings scored below this (not in "discover" mode)
+    )
     anthropic_api_key: SecretStr = SecretStr("")
     anthropic_model: str = "claude-opus-5-5"
     anthropic_effort: Literal["low", "medium", "high"] = "low"

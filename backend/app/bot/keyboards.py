@@ -27,3 +27,10 @@ def plans_kb(plans: list[tuple[str, str, int]], auto_renew_sub: int | None) -> I
         rows.append([InlineKeyboardButton(text="Отключить автопродление", callback_data=f"renew:off:{auto_renew_sub}")])
     rows.append([InlineKeyboardButton(text="Открыть в приложении", web_app=webapp("subscription"))])
     return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def share_link(text: str, link: str, message: str) -> InlineKeyboardMarkup:
+    from urllib.parse import quote
+
+    url = f"https://t.me/share/url?url={quote(link, safe='')}&text={quote(message, safe='')}"
+    return InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text=text, url=url)]])

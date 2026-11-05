@@ -187,12 +187,115 @@ class ProductOut(BaseModel):
     via: str | None = None  # google_lens | web_search: found through a web source, not the marketplace API
 
 
+class PriceRange(BaseModel):
+    """The same item (visually verified) on several marketplaces: cheapest and dearest offer."""
+
+    count: int
+    marketplaces: int
+    currency: str | None
+    min: ProductOut
+    max: ProductOut
+
+
 class ResultsOut(BaseModel):
     items: list[ProductOut]
     total: int
     next_offset: int | None
     facets: dict[str, list[dict[str, Any]]]
     filters_locked: bool
+    price_range: PriceRange | None = None
+
+
+class PricePoint(BaseModel):
+    price: Decimal
+    currency: str
+    at: datetime
+
+
+class ItemOut(BaseModel):
+    search_id: uuid.UUID
+    product: ProductOut
+    offers: list[ProductOut]  # the same item elsewhere, cheapest first
+    similar: list[ProductOut]
+    price_history: list[PricePoint]
+    favorite_id: int | None
+    collection_id: int | None
+    watching: bool
+
+
+class CollectionIn(BaseModel):
+    title: str = Field(min_length=1, max_length=64)
+
+
+class CollectionOut(BaseModel):
+    id: int
+    title: str
+    count: int
+    cover_url: str | None
+
+
+class FavoriteCollectionIn(BaseModel):
+    collection_id: int | None
+
+
+class WatchOut(BaseModel):
+    id: int
+    search_id: uuid.UUID
+    title: str | None
+    image_url: str | None
+    active: bool
+    best_price: Decimal | None
+    best_currency: str | None
+    runs: int
+    last_run_at: datetime | None
+    last_found_at: datetime | None
+    last_search_id: uuid.UUID | None
+
+
+class WatchesOut(BaseModel):
+    items: list[WatchOut]
+    limit: int
+
+
+class ShareIn(BaseModel):
+    product_id: int
+    search_id: uuid.UUID | None = None
+
+
+class ShareOut(BaseModel):
+    token: str
+    link: str
+    image_url: str
+    text: str
+    prepared_message_id: str | None
+
+
+class SharedFindOut(BaseModel):
+    token: str
+    sharer_name: str
+    product: ProductOut
+    search_id: uuid.UUID | None
+
+
+class GiftPackOut(BaseModel):
+    code: str
+    searches: int
+    stars: int
+
+
+class GiftOut(BaseModel):
+    code: str
+    pack: str
+    searches: int
+    status: str
+    link: str
+    created_at: datetime
+    redeemed_at: datetime | None
+
+
+class GiftRedeemOut(BaseModel):
+    searches: int
+    from_name: str
 
 
 class FavoriteIn(BaseModel):
@@ -211,6 +314,7 @@ class FavoriteOut(BaseModel):
     saved_price: Decimal | None
     saved_currency: str | None
     product: ProductOut
+    collection_id: int | None = None
 
 
 class SupportIn(BaseModel):

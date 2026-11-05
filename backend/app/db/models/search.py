@@ -157,3 +157,4 @@ class Favorite(TimestampMixin, Base):
     saved_currency: Mapped[str | None] = mapped_column(String(8))
     price_alert: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     last_notified_price: Mapped[Decimal | None] = mapped_column(Numeric(14, 2))
+    collection_id: Mapped[int | None] = mapped_column(ForeignKey("collections.id", ondelete="SET NULL"), index=True)

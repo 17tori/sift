@@ -9,7 +9,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import ORJSONResponse
 
-from app.api.routes import admin, billing, favorites, me, public, searches
+from app.api.routes import admin, billing, favorites, growth, me, public, searches
 from app.core.config import get_settings
 from app.core.errors import AppError
 from app.core.logging import setup_logging
@@ -68,7 +68,7 @@ def create_app() -> FastAPI:
         log.error("unhandled error on %s %s", request.method, request.url.path, exc_info=exc)
         return ORJSONResponse({"error": {"code": "internal_error", "message": "Что-то пошло не так. Мы уже разбираемся."}}, status_code=500)
 
-    for r in (public.router, me.router, billing.router, searches.router, favorites.router, admin.router):
+    for r in (public.router, me.router, billing.router, searches.router, favorites.router, growth.router, admin.router):
         app.include_router(r)
     return app
 

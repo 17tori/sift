@@ -25,8 +25,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.core.errors import AppError, NotFound
-from app.db.models import Payment, PaymentIntent, Plan, Subscription, User
-from app.services import referrals, subscriptions
+from app.db.models import Gift, Payment, PaymentIntent, Plan, Subscription, User
+from app.services import gifts, referrals, subscriptions
 from app.services.telegram import get_bot
 
 log = logging.getLogger(__name__)
@@ -134,6 +134,7 @@ class PaymentOutcome:
     payment: Payment | None
     subscription: Subscription | None
     renewal: bool = False
+    gift: Gift | None = None
 
 
 async def process_successful_payment(
@@ -190,6 +191,10 @@ async def process_successful_payment(
         log.error("unmapped Stars payment", extra={"ctx": {"charge": telegram_payment_charge_id, "payload": payload}})
         return PaymentOutcome(duplicate=False, payment=payment, subscription=None)
 
+    if intent.kind == "gift":
+        gift = await gifts.on_paid(session, intent, payment)
+        return PaymentOutcome(duplicate=False, payment=payment, subscription=None, gift=gift)
+
     renewal = is_recurring and not is_first_recurring and intent.status == "paid"
     is_first_purchase = await session.scalar(select(Payment.id).where(Payment.user_id == user.id, Payment.id != payment_id).limit(1)) is None
     if renewal:
@@ -238,6 +243,7 @@ async def mark_refunded(session: AsyncSession, telegram_payment_charge_id: str) 
         return payment
     payment.status = "refunded"
     payment.refunded_at = datetime.now(UTC)
+    await gifts.on_refund(session, payment)
     if payment.subscription_id:
         sub = await session.get(Subscription, payment.subscription_id, with_for_update=True)
         if sub is not None and sub.status == "active":

@@ -21,7 +21,7 @@ from app.db.session import session_scope
 from app.marketplace import registry
 from app.marketplace.base import ProviderState
 from app.marketplace.providers.feed import FeedCatalogProvider
-from app.services import fx, notifications, subscriptions
+from app.services import fx, notifications, subscriptions, watches
 from app.services.catalog import upsert_products
 from app.services.storage import get_storage
 
@@ -229,8 +229,12 @@ async def upload_retention() -> None:
                 .limit(500)
             )
         ).all()
+        keep = await watches.watched_image_keys(s)
         for sid, key in rows:
-            await get_storage().delete(key)
+            # watch re-runs reuse the original photo: keep a file while a watch or a newer search needs it
+            newer = await s.scalar(select(SearchSession.id).where(SearchSession.image_key == key, SearchSession.created_at >= cutoff).limit(1))
+            if key not in keep and newer is None:
+                await get_storage().delete(key)
             await s.execute(update(SearchSession).where(SearchSession.id == sid).values(image_key=""))
 
     # Stored listing photos: dropped for listings nobody has seen or saved for the same period.
@@ -248,6 +252,12 @@ async def upload_retention() -> None:
             await s.execute(update(Product).where(Product.id == pid).values(thumb_key=None, thumb_src=None))
 
 
+async def watch_runs() -> None:
+    n = await watches.run_due()
+    if n:
+        log.info("item watches re-run: %d", n)
+
+
 JOBS: list[tuple[str, int, Callable[[], Awaitable[None]]]] = [
     ("expire_subscriptions", 60, expire_subscriptions),
     ("subscription_reminders", 600, subscription_reminders),
@@ -257,6 +267,7 @@ JOBS: list[tuple[str, int, Callable[[], Awaitable[None]]]] = [
     ("price_alerts", 1800, price_alerts),
     ("stale_searches", 120, stale_searches),
     ("upload_retention", 24 * 3600, upload_retention),
+    ("watch_runs", 900, watch_runs),
 ]
 
 

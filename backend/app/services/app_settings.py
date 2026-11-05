@@ -19,6 +19,14 @@ DEFAULTS: dict[str, Any] = {
         "invitee_bonus_searches": 2,
     },
     "basic_marketplaces": ["ebay", "aliexpress", "wildberries"],
+    "gifts": {
+        "enabled": True,
+        "packs": [
+            {"code": "g5", "searches": 5, "stars": 49},
+            {"code": "g20", "searches": 20, "stars": 149},
+            {"code": "g50", "searches": 50, "stars": 299},
+        ],
+    },
 }
 
 

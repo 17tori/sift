@@ -75,6 +75,8 @@ class PaymentIntent(TimestampMixin, Base):
     payload: Mapped[str] = mapped_column(String(128), unique=True, nullable=False)
     status: Mapped[str] = mapped_column(String(16), default="pending", nullable=False)  # pending|paid|expired
     invoice_link: Mapped[str | None] = mapped_column(Text)
+    kind: Mapped[str] = mapped_column(String(16), default="subscription", server_default="subscription", nullable=False)  # |gift
+    gift_pack: Mapped[str | None] = mapped_column(String(16))
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 

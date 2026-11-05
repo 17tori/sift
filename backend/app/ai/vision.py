@@ -7,6 +7,7 @@ import anthropic
 import httpx
 import orjson
 
+from app.ai import gemini
 from app.ai.base import AIUnavailable, ImageAnalysis
 from app.ai.prompts import VISION_DEEP_SUFFIX, VISION_SYSTEM
 from app.core.config import get_settings
@@ -124,12 +125,8 @@ class OpenAICompatibleVision:
 class GeminiVision:
     """Google Gemini API (generateContent) with JSON-schema output. Key: aistudio.google.com/apikey."""
 
-    URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
-
-    def __init__(self, api_key: str, model: str, timeout: float) -> None:
+    def __init__(self, model: str, timeout: float) -> None:
         self.model_id = f"gemini:{model}"
-        self._key = api_key
-        self._model = model
         self._timeout = timeout
 
     def _body(self, image_jpeg: bytes, deep: bool, with_schema: bool) -> dict:
@@ -153,23 +150,9 @@ class GeminiVision:
             "generationConfig": cfg,
         }
 
-    async def _call(self, body: dict) -> httpx.Response:
-        try:
-            async with httpx.AsyncClient(timeout=self._timeout) as c:
-                return await c.post(self.URL.format(model=self._model), json=body, headers={"x-goog-api-key": self._key})
-        except httpx.HTTPError as e:
-            raise AIUnavailable(f"gemini network error: {e.__class__.__name__}") from e
-
     async def analyze(self, image_jpeg: bytes, *, deep: bool) -> ImageAnalysis:
-        if not self._key:
-            raise AIUnavailable("GEMINI_API_KEY is not set")
-        r = await self._call(self._body(image_jpeg, deep, with_schema=True))
-        if r.status_code == 400 and "schema" in r.text.lower():
-            # older model versions reject some JSON-schema keywords: fall back to schema-in-prompt + validation
-            r = await self._call(self._body(image_jpeg, deep, with_schema=False))
-        if r.status_code >= 400:
-            raise AIUnavailable(f"gemini HTTP {r.status_code}: {r.text[:200]}")
-        return parse_gemini(r.json())
+        data = await gemini.generate(lambda with_schema: self._body(image_jpeg, deep, with_schema), http_timeout=self._timeout)
+        return parse_gemini(data)
 
 
 def parse_gemini(data: dict) -> ImageAnalysis:
@@ -199,7 +182,7 @@ class DisabledVision:
 def build_vision_analyzer():  # type: ignore[no-untyped-def]
     s = get_settings()
     if s.vision_provider == "gemini":
-        return GeminiVision(s.gemini_api_key.get_secret_value(), s.gemini_model, s.vision_timeout_seconds)
+        return GeminiVision(s.gemini_model, s.vision_timeout_seconds)
     if s.vision_provider == "anthropic":
         return AnthropicVision(
             s.anthropic_api_key.get_secret_value(), s.anthropic_model, s.anthropic_effort, s.anthropic_server_fallbacks, s.vision_timeout_seconds

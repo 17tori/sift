@@ -14,9 +14,9 @@ import logging
 from dataclasses import dataclass
 from typing import Literal
 
-import httpx
 import orjson
 
+from app.ai import gemini
 from app.ai.base import AIUnavailable
 from app.core.config import get_settings
 
@@ -112,30 +112,18 @@ def parse_verdicts(data: dict, n: int) -> dict[int, Verdict]:
 
 
 class GeminiVerifier:
-    URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
-
     def __init__(self) -> None:
         s = get_settings()
-        self._key = s.gemini_api_key.get_secret_value()
-        self._model = s.verify_model or s.gemini_model
-        self._timeout = s.vision_timeout_seconds
+        self._models = list(dict.fromkeys([s.verify_model, *gemini.models_chain()] if s.verify_model else gemini.models_chain()))
+        self._timeout = s.verify_timeout_seconds
         self._batch = max(1, s.verify_batch_size)
-        self.model_id = f"gemini:{self._model}"
-
-    async def _call(self, body: dict) -> httpx.Response:
-        try:
-            async with httpx.AsyncClient(timeout=self._timeout) as c:
-                return await c.post(self.URL.format(model=self._model), json=body, headers={"x-goog-api-key": self._key})
-        except httpx.HTTPError as e:
-            raise AIUnavailable(f"gemini network error: {e.__class__.__name__}") from e
+        self.model_id = f"gemini:{self._models[0] if self._models else s.gemini_model}"
 
     async def _batch_verify(self, query: bytes, cands: list[bytes], hint: str | None) -> dict[int, Verdict]:
-        r = await self._call(build_body(query, cands, hint))
-        if r.status_code == 400 and "schema" in r.text.lower():
-            r = await self._call(build_body(query, cands, hint, with_schema=False))
-        if r.status_code >= 400:
-            raise AIUnavailable(f"gemini HTTP {r.status_code}: {r.text[:200]}")
-        return parse_verdicts(r.json(), len(cands))
+        data = await gemini.generate(
+            lambda with_schema: build_body(query, cands, hint, with_schema), http_timeout=self._timeout, models=self._models
+        )
+        return parse_verdicts(data, len(cands))
 
     async def verify(self, query: bytes, cands: list[bytes], hint: str | None = None) -> dict[int, Verdict]:
         """Scores every candidate image against the query photo. Batches run concurrently; a failed batch

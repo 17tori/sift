@@ -6,6 +6,7 @@ import asyncio
 from decimal import Decimal
 from types import SimpleNamespace
 
+import orjson
 import pytest
 
 from app.marketplace import lens, listing, web, websearch
@@ -289,3 +290,41 @@ def test_gemini_verify_parsing_and_body() -> None:
     assert v[0].score == 100 and v[0].verdict == "same" and v[1].score == 12 and set(v) == {0, 1}
     with pytest.raises(AIUnavailable):
         parse_verdicts({"candidates": [{"finishReason": "SAFETY"}]}, 2)
+
+
+async def test_gemini_retries_falls_back_and_drops_unsupported_thinking(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    import httpx
+    from pydantic import SecretStr
+
+    from app.ai import gemini
+    from app.ai.base import AIUnavailable
+    from app.core.config import get_settings
+
+    s = get_settings()
+    monkeypatch.setattr(s, "gemini_api_key", SecretStr("k"))
+    monkeypatch.setattr(s, "gemini_model", "busy")
+    monkeypatch.setattr(s, "gemini_fallback_models", ["retired", "picky"])
+    monkeypatch.setattr(gemini, "BACKOFF", (0, 0))
+    calls: list[tuple[str, bool]] = []
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        model = req.url.path.split("/")[-1].split(":")[0]
+        body = orjson.loads(req.content)
+        thinking = "thinkingConfig" in body["generationConfig"]
+        calls.append((model, thinking))
+        if model == "busy":
+            return httpx.Response(503, text='{"error":{"status":"UNAVAILABLE"}}')
+        if model == "retired":
+            return httpx.Response(404, text="no longer available")
+        if thinking:
+            return httpx.Response(400, text="thinking_level is not supported for this model")
+        return httpx.Response(200, json={"ok": True})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as c:
+        out = await gemini.generate(lambda schema: {"generationConfig": {}}, http_timeout=5, client=c)
+    assert out == {"ok": True}
+    assert calls == [("busy", True)] * 3 + [("retired", True), ("picky", True), ("picky", False)]
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(lambda r: httpx.Response(403, text="key"))) as c:
+        with pytest.raises(AIUnavailable, match="403"):
+            await gemini.generate(lambda schema: {}, http_timeout=5, client=c)

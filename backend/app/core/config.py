@@ -79,11 +79,16 @@ class Settings(BaseSettings):
     vision_provider: Literal["gemini", "anthropic", "openai_compatible", "none"] = "gemini"
     gemini_api_key: SecretStr = SecretStr("")
     gemini_model: str = "gemini-3.8-flash"
+    # tried in order when the main model is overloaded (503/429), times out or is retired (404)
+    gemini_fallback_models: Annotated[list[str], NoDecode] = Field(default_factory=list)
+    # thinking limit for image tasks: minimal | low | medium | high | default (model's own)
+    gemini_thinking: Literal["minimal", "low", "medium", "high", "default"] = "low"
     # Gemini compares the user's photo with each found listing's photo: real similarity %, wrong items hidden
     verify_provider: Literal["gemini", "none"] = "gemini"
     verify_model: str = ""  # empty: GEMINI_MODEL
     verify_max_candidates: int = 36
-    verify_batch_size: int = 12
+    verify_batch_size: int = 8
+    verify_timeout_seconds: float = 45.0
     verify_reject_below: int = 35  # hide listings scored below this (not in "discover" mode)
     anthropic_api_key: SecretStr = SecretStr("")
     anthropic_model: str = "claude-opus-5-5"
@@ -163,7 +168,9 @@ class Settings(BaseSettings):
     trial_days: int = 3
     trial_auto_activate: bool = False
 
-    @field_validator("admin_telegram_ids", "cors_origins", "marketplaces_enabled", "web_search_marketplaces", mode="before")
+    @field_validator(
+        "admin_telegram_ids", "cors_origins", "marketplaces_enabled", "web_search_marketplaces", "gemini_fallback_models", mode="before"
+    )
     @classmethod
     def _split_csv(cls, v: object) -> object:
         if isinstance(v, str):

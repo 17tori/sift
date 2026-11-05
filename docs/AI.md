@@ -147,3 +147,12 @@ EMBEDDING_DIM=1024
 режима «Стиль», где нужны именно похожие, а не те же вещи, и кроме случая, когда после скрытия осталось бы
 меньше трёх результатов). Выдача сортируется по оценке. Если Gemini недоступен, поиск работает как раньше,
 без процента. Выключить: `VERIFY_PROVIDER=none`. Отдельная модель для сверки: `VERIFY_MODEL`.
+
+## Перегрузка Gemini (503, timeout)
+
+Каждый вызов Gemini ограничивает «размышления» (`GEMINI_THINKING=low`), повторяет запрос при 429/5xx и
+таймауте (через 1,5 и 4 с) и затем переходит к следующей модели из `GEMINI_FALLBACK_MODELS`. Список
+моделей, доступных ключу:
+
+    curl -s -H "x-goog-api-key: $(grep ^GEMINI_API_KEY= .env | cut -d= -f2-)" \
+      "https://generativelanguage.googleapis.com/v1beta/models?pageSize=200" | grep -o '"models/gemini[^"]*"'

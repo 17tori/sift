@@ -1,0 +1,45 @@
+name: Deploy
+
+# Runs CI, then deploys to the VPS over SSH with scripts/deploy.sh.
+# Repository secrets: SSH_HOST, SSH_USER, SSH_PRIVATE_KEY, SSH_KNOWN_HOSTS (output of `ssh-keyscan <host>`)
+# Repository variable: DEPLOY_PATH (default /opt/sift)
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Git ref to deploy (tag, branch or commit)"
+        required: false
+        default: main
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  ci:
+    uses: ./.github/workflows/ci.yml
+
+  deploy:
+    needs: ci
+    runs-on: ubuntu-24.04
+    environment: production
+    steps:
+      - name: Configure SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_deploy && chmod 600 ~/.ssh/id_deploy
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+      - name: Deploy
+        env:
+          HOST: ${{ secrets.SSH_HOST }}
+          USER: ${{ secrets.SSH_USER }}
+          DEPLOY_PATH: ${{ vars.DEPLOY_PATH || '/opt/sift' }}
+          REF: ${{ github.event_name == 'push' && github.ref_name || inputs.ref }}
+        run: |
+          ssh -i ~/.ssh/id_deploy -o BatchMode=yes "$USER@$HOST" \
+            "cd '$DEPLOY_PATH' && REF='$REF' ./scripts/deploy.sh"

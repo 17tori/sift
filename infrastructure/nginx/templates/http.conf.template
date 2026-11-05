@@ -1,0 +1,7 @@
+# Bootstrap mode (no certificate yet): serves ACME challenges and the app over HTTP.
+server {
+    listen 80;
+    server_name ${DOMAIN};
+    location /.well-known/acme-challenge/ { root /var/www/certbot; }
+    include /etc/nginx/common.conf;
+}

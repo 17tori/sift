@@ -1,0 +1,95 @@
+@import "tailwindcss";
+@import "@fontsource-variable/inter";
+@import "@fontsource-variable/manrope";
+@import "@fontsource-variable/geist-mono";
+
+/* Dark Editorial design tokens. Brand accent can be overridden at runtime (--accent). */
+:root {
+  --obsidian: #111111;
+  --graphite: #242424;
+  --ivory: #f5f3ee;
+  --silver: #a6a6a6;
+  --accent: #526bff;
+
+  /* light theme (Ivory) */
+  --bg: #f5f3ee;
+  --surface: #ffffff;
+  --surface-2: #ece9e2;
+  --line: rgba(17, 17, 17, 0.08);
+  --line-strong: rgba(17, 17, 17, 0.16);
+  --ink: #111111;
+  --ink-2: #5c5c5c;
+  --ink-3: #8a8a8a;
+  --accent-ink: #ffffff;
+  --accent-soft: rgba(82, 107, 255, 0.1);
+  --good: #2e8b57;
+  --bad: #c2412d;
+  --shadow: 0 1px 2px rgba(17, 17, 17, 0.04), 0 8px 24px rgba(17, 17, 17, 0.06);
+}
+
+:root[data-theme="dark"] {
+  --bg: #111111;
+  --surface: #1a1a1a;
+  --surface-2: #242424;
+  --line: rgba(245, 243, 238, 0.07);
+  --line-strong: rgba(245, 243, 238, 0.14);
+  --ink: #f5f3ee;
+  --ink-2: #a6a6a6;
+  --ink-3: #6f6f6f;
+  --accent-soft: rgba(82, 107, 255, 0.16);
+  --good: #5cc28a;
+  --bad: #ff7a66;
+  --shadow: 0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 12px 32px rgba(0, 0, 0, 0.35);
+}
+
+@theme {
+  --font-sans: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Manrope Variable", "Inter Variable", ui-sans-serif, sans-serif;
+  --font-mono: "Geist Mono Variable", ui-monospace, monospace;
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-accent-soft: var(--accent-soft);
+  --color-good: var(--good);
+  --color-bad: var(--bad);
+  --radius-card: 20px;
+}
+
+html, body, #root { min-height: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-y: none;
+  font-feature-settings: "cv11", "ss01";
+}
+button { cursor: pointer; }
+input, textarea, select { font: inherit; color: inherit; }
+::selection { background: var(--accent); color: white; }
+
+.safe-top { padding-top: max(env(safe-area-inset-top), var(--tg-safe-top, 0px)); }
+.safe-bottom { padding-bottom: max(env(safe-area-inset-bottom), var(--tg-safe-bottom, 0px)); }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { scrollbar-width: none; }
+
+.shimmer {
+  background: linear-gradient(100deg, var(--surface-2) 30%, var(--line-strong) 50%, var(--surface-2) 70%);
+  background-size: 300% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+@keyframes shimmer { 0% { background-position: 100% 0; } 100% { background-position: 0 0; } }
+
+.dashed-zone {
+  background-image: url("data:image/svg+xml,%3csvg width='100%25' height='100%25' xmlns='http://www.w3.org/2000/svg'%3e%3crect width='100%25' height='100%25' fill='none' rx='24' ry='24' stroke='%23A6A6A6' stroke-opacity='0.45' stroke-width='1.5' stroke-dasharray='6%2c 8' stroke-linecap='round'/%3e%3c/svg%3e");
+}
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }

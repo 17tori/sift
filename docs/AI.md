@@ -21,7 +21,7 @@ Anthropic и Jina не нужны. Их можно подключить как �
 ```
 VISION_PROVIDER=gemini
 GEMINI_API_KEY=...          # aistudio.google.com/apikey
-GEMINI_MODEL=gemini-2.5-flash
+GEMINI_MODEL=gemini-3.8-flash
 ```
 
 - Ответ строго по JSON-схеме (`responseJsonSchema`). Если модель не принимает схему, SIFT передаёт схему в промпте

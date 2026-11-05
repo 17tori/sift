@@ -78,7 +78,7 @@ class Settings(BaseSettings):
 
     vision_provider: Literal["gemini", "anthropic", "openai_compatible", "none"] = "gemini"
     gemini_api_key: SecretStr = SecretStr("")
-    gemini_model: str = "gemini-2.5-flash"
+    gemini_model: str = "gemini-3.8-flash"
     anthropic_api_key: SecretStr = SecretStr("")
     anthropic_model: str = "claude-opus-5-5"
     anthropic_effort: Literal["low", "medium", "high"] = "low"

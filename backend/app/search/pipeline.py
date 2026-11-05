@@ -118,6 +118,8 @@ class SearchRun:
         await _set(self.search.id, analysis=data)
 
     async def embed(self) -> None:
+        if self.embedder.model_id == "none":  # EMBEDDING_PROVIDER=none is a choice, not a failure
+            return
         await _set(self.search.id, stage="embedding")
         try:
             vec = (await self.embedder.embed_images([self.image]))[0]

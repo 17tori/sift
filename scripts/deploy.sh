@@ -14,6 +14,9 @@ fi
 docker compose build
 docker compose run --rm migrate
 docker compose up -d --remove-orphans
+# nginx resolves api/bot addresses once at start: after they are recreated it must restart too,
+# otherwise it keeps proxying to the old containers' IPs and the Mini App hangs on the splash.
+docker compose up -d --force-recreate --no-deps nginx
 docker image prune -f >/dev/null
 
 for _ in $(seq 1 40); do
